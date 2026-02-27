@@ -11,6 +11,10 @@ export default function Comprehension() {
 
   const article = articles.find(a => a.id === id)
   if (!article) return null
+  if (article.status === 'completed') {
+    navigate(`/summary/${id}`)
+    return null
+  }
 
   const questions = article.comprehensionQuestions
   const question = questions[currentQ]

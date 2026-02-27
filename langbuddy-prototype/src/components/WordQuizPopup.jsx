@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext'
 
 export default function WordQuizPopup({ vocabItem, articleId, onClose }) {
   const { wordBank, handleWordQuizAnswer } = useApp()
-  const [answered, setAnswered] = useState(null)
+  const [selectedOption, setSelectedOption] = useState(null)
 
   const options = useMemo(() => {
     const distractors = wordBank
@@ -15,11 +15,14 @@ export default function WordQuizPopup({ vocabItem, articleId, onClose }) {
   }, [vocabItem.korean])
 
   function handleAnswer(option) {
-    if (answered !== null) return
+    if (selectedOption !== null) return
     const correct = option === vocabItem.english
-    setAnswered(correct ? 'correct' : 'wrong')
+    setSelectedOption(option)
     handleWordQuizAnswer({ articleId, vocabItem, correct })
   }
+
+  const answered = selectedOption !== null
+  const isCorrect = selectedOption === vocabItem.english
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50" onClick={onClose}>
@@ -37,10 +40,12 @@ export default function WordQuizPopup({ vocabItem, articleId, onClose }) {
         <div className="space-y-2">
           {options.map((option, i) => {
             let cls = 'w-full py-3.5 px-4 rounded-xl border text-left font-medium text-sm transition-colors '
-            if (answered === null) {
+            if (!answered) {
               cls += 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-800'
             } else if (option === vocabItem.english) {
               cls += 'border-green-400 bg-green-50 text-green-800'
+            } else if (option === selectedOption) {
+              cls += 'border-red-300 bg-red-50 text-red-800'
             } else {
               cls += 'border-gray-100 bg-gray-50 text-gray-400'
             }
@@ -54,8 +59,8 @@ export default function WordQuizPopup({ vocabItem, articleId, onClose }) {
 
         {answered && (
           <div className="mt-5 text-center">
-            <p className={`font-semibold mb-2 ${answered === 'correct' ? 'text-green-600' : 'text-red-500'}`}>
-              {answered === 'correct' ? '✓ Correct! +1' : '✗ Wrong. -1'}
+            <p className={`font-semibold mb-2 ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
+              {isCorrect ? '✓ Correct! +1' : '✗ Wrong. -1'}
             </p>
             <p className="text-xs text-gray-400 mb-1">Example:</p>
             <p className="text-sm text-gray-700 italic">{vocabItem.example}</p>

@@ -121,7 +121,7 @@ export const initialArticles = [
     excerpt: '한식은 건강에 좋은 음식으로 세계적으로 유명합니다. 김치의 비밀을 알아봅시다.',
     status: 'completed',
     wordQuizScore: 5,
-    comprehensionScore: 2,
+    comprehensionScore: 1,
     createdAt: '2026-02-23T09:00:00Z',
     completedAt: '2026-02-23T10:30:00Z',
     adaptedKorean: [
@@ -187,7 +187,7 @@ export const initialArticles = [
       { text: ' 비용은 다른 나라에 비해 ', type: 'text' },
       { text: '저렴합니다', type: 'vocab', vocabId: 'jeoryeom' },
       { text: '. 식비는 식당에서 먹으면 비싸지만 마트에서 장을 보면 ', type: 'text' },
-      { text: '절약', type: 'wordbank', wordBankId: 43 },
+      { text: '절약', type: 'wordbank', wordBankId: 16 },
       { text: '할 수 있습니다.', type: 'text' },
     ],
     englishText:
@@ -232,7 +232,9 @@ export const initialArticles = [
     createdAt: '2026-02-26T09:00:00Z',
     completedAt: null,
     adaptedKorean: [
-      { text: 'K-팝은 전 세계 젊은이들에게 인기가 많습니다. 유명한 그룹들이 세계 음악 ', type: 'text' },
+      { text: 'K-팝의 ', type: 'text' },
+      { text: '세계화', type: 'vocab', vocabId: 'segyehwa' },
+      { text: '는 빠릅니다. 유명한 그룹들이 세계 음악 ', type: 'text' },
       { text: '시장', type: 'wordbank', wordBankId: 26 },
       { text: '에서 큰 ', type: 'text' },
       { text: '성공', type: 'vocab', vocabId: 'seonggong' },
