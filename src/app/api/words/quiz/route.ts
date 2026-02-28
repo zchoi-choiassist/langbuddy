@@ -49,11 +49,13 @@ export async function POST(req: Request) {
       .select('word_quiz_score')
       .eq('id', articleId)
       .single()
-    const delta = correct ? 1 : -1
-    await supabaseAdmin
-      .from('articles')
-      .update({ word_quiz_score: (article?.word_quiz_score ?? 0) + delta })
-      .eq('id', articleId)
+    if (article) {
+      const delta = correct ? 1 : -1
+      await supabaseAdmin
+        .from('articles')
+        .update({ word_quiz_score: article.word_quiz_score + delta })
+        .eq('id', articleId)
+    }
   }
 
   return NextResponse.json({ mastery: newMastery, correct })
