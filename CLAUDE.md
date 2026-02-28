@@ -57,6 +57,7 @@ Articles have an `adaptedKorean` field: an array of segments `{ text, type }` wh
 - `'text'` — plain, not tappable
 - `'vocab'` — new vocab word for this article (blue underline), has `vocabId` matching `article.vocabulary[].id`
 - `'wordbank'` — word from user's active word bank (orange underline), has `wordBankId` matching `wordBank[].id`
+- `'break'` — paragraph separator, no `text` field; renders as a `<div className="mt-4" />` block spacer in ReadingView
 
 When adding `'wordbank'` segments, **always verify the `wordBankId` maps to the correct Korean word** in `wordBank.js`. The bug where `절약` (saving) was mistakenly mapped to id 43 (`소비`/consumption) instead of id 16 was caught only in code review.
 
@@ -75,6 +76,10 @@ Running `npm create vite@latest` installs React 19 (not 18) and React Router v7 
 ### Vite boilerplate cleanup
 
 After `npm create vite`, always delete: `src/App.css`, `src/assets/react.svg`, `public/vite.svg`. Update `<title>` in `index.html`. Remove the `<link rel="icon">` that points to `vite.svg`.
+
+### ReadingView renders `adaptedKorean` inside a `<div>`, not `<p>`
+
+The Korean article text container is a `<div>`, not a `<p>`. This matters because `{ type: 'break' }` segments render as `<div className="mt-4" />` block elements — nesting a `<div>` inside a `<p>` is invalid HTML and breaks layout. Never change the container back to `<p>`. Also: `<br className="...">` does not apply Tailwind spacing since `<br>` is an inline element — always use a `<div>` for block spacing.
 
 ### Vocab items must be linked in `adaptedKorean`
 
