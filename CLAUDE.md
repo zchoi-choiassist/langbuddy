@@ -61,6 +61,8 @@ Articles have an `adaptedKorean` field: an array of segments `{ text, type }` wh
 
 When adding `'wordbank'` segments, **always verify the `wordBankId` maps to the correct Korean word** in `wordBank.js`. The bug where `절약` (saving) was mistakenly mapped to id 43 (`소비`/consumption) instead of id 16 was caught only in code review.
 
+Each word in `wordBank.js` also has a `topikLevel: 1 | 2` field used by the TOPIK 1 / TOPIK 2 filters in the Word Bank screen. TOPIK 1 = everyday basics (가족, 음식, 날씨, basic verbs); TOPIK 2 = advanced/abstract vocabulary (경제, 산업, 세계화, etc.).
+
 ### Scoring consistency
 
 Article 3 has pre-set `userAnswer` values to simulate a completed article. The `comprehensionScore` must match the actual +1/-1 outcomes from those answers — don't set it by hand without calculating. For art-3: q1 correct (+1), q2 correct (+1), q3 wrong (-1) = net +1, so `comprehensionScore: 1`.
@@ -101,6 +103,17 @@ import('./src/data/articles.js').then(m => {
 ```
 
 Checks that every vocabulary[] entry has a matching vocab segment, all wordBankIds are present, question count is correct, and no pre-set userAnswers exist.
+
+### Word Bank screen filter options
+
+The Word Bank screen uses a `filter` state (not `sortBy`) with five options rendered as pill buttons:
+- `'mastery'` — sort by masteryLevel ascending (weakest first, default)
+- `'alpha'` — sort alphabetically by Korean (`localeCompare` with `'ko'` locale)
+- `'added'` — sort by addedAt descending (most recently added first)
+- `'topik1'` — filter to `topikLevel === 1`, sorted by mastery
+- `'topik2'` — filter to `topikLevel === 2`, sorted by mastery
+
+"By Date" was removed — "Added" is the clearer label for the same concept. Filters apply to both the Active and Mastered sections via a shared `applyFilter()` helper.
 
 ### Production word bank model
 
