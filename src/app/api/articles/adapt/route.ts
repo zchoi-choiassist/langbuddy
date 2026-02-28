@@ -9,7 +9,14 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const userId = session.user.id
 
-  const { url, redditType } = await req.json()
+  let url: string, redditType: string | undefined
+  try {
+    const body = await req.json()
+    url = body.url
+    redditType = body.redditType
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
   if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 })
 
   const { data: settings } = await supabaseAdmin
@@ -19,7 +26,12 @@ export async function POST(req: Request) {
     .single()
   const topikLevel = settings?.topik_level ?? 2
 
-  const extracted = await fetchAndExtract(url, redditType)
+  let extracted: Awaited<ReturnType<typeof fetchAndExtract>>
+  try {
+    extracted = await fetchAndExtract(url, redditType as 'post' | 'article' | undefined)
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 422 })
+  }
 
   // Reddit URL without type choice yet — ask the client to choose
   if (extracted.isReddit && !redditType) {
@@ -29,7 +41,12 @@ export async function POST(req: Request) {
     })
   }
 
-  const adaptation = await adaptArticle(extracted.title, extracted.content, topikLevel)
+  let adaptation: Awaited<ReturnType<typeof adaptArticle>>
+  try {
+    adaptation = await adaptArticle(extracted.title, extracted.content, topikLevel)
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 502 })
+  }
 
   const { data: article, error } = await supabaseAdmin
     .from('articles')
