@@ -77,25 +77,36 @@ For Reddit URLs, the app detects this and prompts: **"Adapt the linked article"*
 
 ## Word Bank Mechanics
 
-**How words enter the bank:**
-- Tapping a highlighted new vocabulary word during reading opens a quiz popup
-- 4 multiple-choice English definitions (1 correct + 3 Claude-generated distractors)
-- Correct answer: word is added to word bank at mastery 1 (or +1 if already present)
-- Wrong answer: word is added to word bank at mastery 0 (or -1 if already present, floored at 0)
+### Production word bank model
 
-**Mastery progression:**
+In production the word bank is the full TOPIK I+II dictionary (~2,300 words), pre-seeded in Supabase. Every user starts with all TOPIK words at mastery 0; mastery is tracked per-user per-word. Users can also add custom words beyond TOPIK scope.
+
+| | Prototype | Production |
+|---|---|---|
+| Word bank source | User-encountered words | TOPIK dictionary (pre-seeded) + user additions |
+| Word bank size | ~100 words | ~2,300 TOPIK I+II words + custom words |
+| Mastery tracking | per-word (0–100) | per-word per-user (0–100), starts at 0 |
+| Custom words | ❌ | ✅ user can add any word |
+
+**How mastery changes:**
+- Tapping a highlighted word opens a quiz popup
+- 4 multiple-choice English definitions (1 correct + 3 distractors)
+- Correct answer: +1 mastery (floored at 100)
+- Wrong answer: -1 mastery (floored at 0)
+
+**Mastery levels:**
 - Mastery is an integer 0–100
-- Each correct quiz answer: +1
-- Each wrong quiz answer: -1 (floor 0)
 - At mastery 100: word graduates to "Mastered"
+- Mastered words reappear as maintenance quizzes; a wrong answer drops mastery to 99
 
-**Mastered word maintenance:**
-- Graduated words reappear occasionally as maintenance quizzes
-- A wrong answer drops mastery to 99 and re-enters the active cycle
+**Frontend color-coding** based on `topikLevel` vs user's current TOPIK level:
+- `topikLevel <= userLevel` + high mastery → subtle gray underline (known)
+- `topikLevel <= userLevel` + low mastery → blue underline (reinforce)
+- `topikLevel > userLevel` → orange underline (challenge)
 
-**Integration with future articles:**
-- Claude receives a list of your active word bank words (mastery 0–99) and is instructed to naturally incorporate them into adapted text
-- These appear as orange-underlined words in the Reading View
+**Integration with articles:**
+- Claude receives the user's TOPIK level and is instructed to tag every vocabulary word with its TOPIK level
+- Words appear highlighted in Reading View based on the color-coding rules above
 
 ---
 
@@ -120,70 +131,105 @@ users (id, email, created_at)
 -- User preferences
 user_settings (user_id, topik_level)  -- topik_level: 1–6
 
--- Word bank
-words (
-  id, user_id,
-  korean text,
-  english text,
-  romanization text,
-  example_sentence text,
-  mastery_level int,      -- 0–100
-  times_seen int,
-  times_correct int,
-  created_at,
-  last_seen_at
-)
+-- Global TOPIK dictionary (pre-seeded once, ~2,300 words)
+CREATE TABLE topik_words (
+  id           SERIAL PRIMARY KEY,
+  korean       TEXT NOT NULL,
+  english      TEXT,
+  romanization TEXT,
+  topik_level  SMALLINT NOT NULL  -- 1–6
+);
+
+-- Per-user mastery (row created on first encounter or pre-seeded at 0)
+CREATE TABLE user_word_mastery (
+  id            SERIAL PRIMARY KEY,
+  user_id       UUID REFERENCES auth.users,
+  word_id       INT REFERENCES topik_words(id),
+  mastery       SMALLINT DEFAULT 0,   -- 0–100
+  times_correct INT DEFAULT 0,
+  times_seen    INT DEFAULT 0,
+  UNIQUE(user_id, word_id)
+);
+
+-- User-added custom words (non-TOPIK vocabulary)
+CREATE TABLE user_custom_words (
+  id           SERIAL PRIMARY KEY,
+  user_id      UUID REFERENCES auth.users,
+  korean       TEXT NOT NULL,
+  english      TEXT,
+  romanization TEXT,
+  mastery      SMALLINT DEFAULT 0,
+  added_at     TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- Articles
-articles (
-  id, user_id,
-  source_url text,
-  title text,
-  adapted_korean text,
-  original_english text,
-  topik_level_at_time int,
-  status text,            -- 'unread' | 'reading' | 'completed'
-  word_quiz_score int,
-  comprehension_score int,
-  total_score int,
-  comprehension_questions jsonb,  -- [{question, options, correct, user_answer}]
-  created_at,
-  completed_at
-)
-
--- Which word bank words appeared in each article
-article_words (article_id, word_id)
+CREATE TABLE articles (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                UUID REFERENCES auth.users,
+  source_url             TEXT,
+  title                  TEXT,
+  adapted_korean         JSONB,  -- array of Segment objects (see Segment type below)
+  original_english       TEXT,
+  topik_level_at_time    INT,
+  status                 TEXT,   -- 'unread' | 'reading' | 'completed'
+  word_quiz_score        INT DEFAULT 0,
+  comprehension_score    INT DEFAULT 0,
+  total_score            INT DEFAULT 0,
+  comprehension_questions JSONB, -- [{id, question, options, correct, user_answer}]
+  created_at             TIMESTAMPTZ DEFAULT NOW(),
+  completed_at           TIMESTAMPTZ
+);
 ```
+
+### Segment type (production)
+
+```ts
+type Segment =
+  | { type: 'text'; text: string }
+  | { type: 'word'; text: string; wordId: number; topikLevel: 1|2|3|4|5|6; userMastery: number }
+```
+
+The `wordId` references `topik_words.id`. The `userMastery` field is denormalized at render time from `user_word_mastery` and is not stored in the article JSON.
 
 ---
 
 ## Key AI Prompt Design
 
-Claude is called once per article with a structured prompt that returns JSON:
+Claude is called once per article via `/api/adapt` and returns a structured JSON object. The system prompt is cached with `cache_control: { type: 'ephemeral' }` to reduce cost on repeat calls.
 
 **Input to Claude:**
-- TOPIK level (1–6)
-- Active word bank words (mastery 0–99)
-- Extracted article text
+- TOPIK level (1–6) in the user message
+- Extracted article text in the user message
+- Full TOPIK vocabulary reference (organized by level 1–6) in the cached system prompt
 
 **Output from Claude:**
 ```json
 {
-  "adapted_korean": "...",
-  "new_vocabulary": [
-    { "korean": "...", "english": "...", "romanization": "...", "example": "..." }
+  "adaptedKorean": [
+    { "text": "...", "type": "text" },
+    { "text": "경제적", "type": "word", "wordId": 42, "topikLevel": 2 }
   ],
-  "comprehension_questions": [
+  "comprehensionQuestions": [
     {
+      "id": "q1",
       "question": "...",
-      "options": ["A", "B", "C", "D"],
-      "correct": "A"
+      "options": ["...", "...", "...", "..."],
+      "correct": 0
     }
   ]
 }
 ```
 
-Word bank words that appear in the adapted text are identified by matching against the returned Korean text. New vocabulary words are highlighted at render time using the positions/tokens returned by Claude.
+**Morphology handling:** Claude uses its built-in Korean linguistic knowledge to correctly identify that inflected forms like `경제적` or `경제를` are forms of `경제` (TOPIK level 2). This avoids the need for a Korean NLP library on Vercel. Accuracy ~90–95%, acceptable for a personal learning tool.
+
+**Token budget (per article after cache warm):**
+
+| Component | Tokens | Cost |
+|---|---|---|
+| System prompt (cache read) | ~12,000 | ~$0.004 |
+| User message | ~800 | ~$0.002 |
+| Output | ~1,200 | ~$0.018 |
+| **Total** | | **~$0.024** |
 
 ---
 

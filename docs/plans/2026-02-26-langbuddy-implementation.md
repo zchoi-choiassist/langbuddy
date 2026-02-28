@@ -310,50 +310,71 @@ create table user_settings (
   updated_at timestamptz not null default now()
 );
 
-create table words (
-  id uuid primary key default uuid_generate_v4(),
-  user_id text not null,
-  korean text not null,
-  english text not null,
-  romanization text not null default '',
-  example_sentence text not null default '',
-  mastery_level int not null default 0 check (mastery_level between 0 and 100),
-  times_seen int not null default 0,
+-- Global TOPIK dictionary (pre-seeded once, ~2,300 words)
+create table topik_words (
+  id           serial primary key,
+  korean       text not null,
+  english      text,
+  romanization text,
+  topik_level  smallint not null check (topik_level between 1 and 6)
+);
+
+-- Per-user mastery (row created on first encounter, or bulk-seeded at mastery 0)
+create table user_word_mastery (
+  id            serial primary key,
+  user_id       text not null,
+  word_id       int not null references topik_words(id),
+  mastery       smallint not null default 0 check (mastery between 0 and 100),
   times_correct int not null default 0,
-  created_at timestamptz not null default now(),
-  last_seen_at timestamptz not null default now(),
-  unique (user_id, korean)
+  times_seen    int not null default 0,
+  unique (user_id, word_id)
 );
 
+-- User-added custom words (non-TOPIK vocabulary)
+create table user_custom_words (
+  id           serial primary key,
+  user_id      text not null,
+  korean       text not null,
+  english      text,
+  romanization text,
+  mastery      smallint not null default 0 check (mastery between 0 and 100),
+  added_at     timestamptz not null default now()
+);
+
+-- Articles — adapted_korean stored as JSONB segment array
 create table articles (
-  id uuid primary key default uuid_generate_v4(),
-  user_id text not null,
-  source_url text not null,
-  title text not null,
-  adapted_korean text not null default '',
-  original_english text not null,
-  topik_level_at_time int not null,
-  status text not null default 'unread' check (status in ('unread', 'reading', 'completed')),
-  word_quiz_score int not null default 0,
-  comprehension_score int not null default 0,
-  total_score int not null default 0,
+  id                      uuid primary key default uuid_generate_v4(),
+  user_id                 text not null,
+  source_url              text not null,
+  title                   text not null,
+  adapted_korean          jsonb not null default '[]',  -- Segment[]
+  original_english        text not null,
+  topik_level_at_time     int not null,
+  status                  text not null default 'unread' check (status in ('unread', 'reading', 'completed')),
+  word_quiz_score         int not null default 0,
+  comprehension_score     int not null default 0,
+  total_score             int not null default 0,
   comprehension_questions jsonb not null default '[]',
-  new_vocabulary jsonb not null default '[]',
-  word_bank_appearances jsonb not null default '[]',
-  created_at timestamptz not null default now(),
-  completed_at timestamptz
+  created_at              timestamptz not null default now(),
+  completed_at            timestamptz
 );
 
-create table article_words (
-  article_id uuid not null references articles(id) on delete cascade,
-  word_id uuid not null references words(id) on delete cascade,
-  primary key (article_id, word_id)
-);
-
-create index on words (user_id);
+create index on topik_words (korean);
+create index on user_word_mastery (user_id);
+create index on user_custom_words (user_id);
 create index on articles (user_id, status);
 create index on articles (user_id, created_at desc);
 ```
+
+**Segment type stored in `adapted_korean` JSONB:**
+```ts
+type Segment =
+  | { type: 'text'; text: string }
+  | { type: 'word'; text: string; wordId: number; topikLevel: 1|2|3|4|5|6 }
+// userMastery is NOT stored in the article — it's joined at render time from user_word_mastery
+```
+
+**TOPIK dictionary source:** Use a community-compiled JSON repo (search GitHub for `topik vocabulary json`), spot-check against official TOPIK exam lists, then bulk-insert via a migration script.
 
 **Step 12: Commit**
 
@@ -772,49 +793,69 @@ const TOPIK_DESCRIPTIONS: Record<number, string> = {
   6: 'advanced — near-native, nuanced vocabulary, complex grammar',
 }
 
-export function buildAdaptationPrompt(
-  content: string,
-  topikLevel: TopikLevel,
-  wordBank: Array<{ korean: string; english: string }>
-): string {
-  const wordBankSection =
-    wordBank.length > 0
-      ? `\nActive vocabulary to incorporate naturally where possible:\n${wordBank.map(w => `- ${w.korean} (${w.english})`).join('\n')}\n`
-      : ''
+// System prompt is ~12K tokens — cached with ephemeral cache_control to reduce per-call cost.
+// Cache read cost: ~$0.004 vs cache write cost: ~$0.045. Break-even at 2 calls per TTL (5 min).
+//
+// The system prompt contains the full TOPIK vocabulary reference (levels 1–6).
+// Claude uses this to tag each word with the correct topikLevel, and handles Korean morphology
+// (e.g. 경제적 → tagged as 경제, level 2) using its built-in linguistic knowledge.
+// Accuracy ~90–95%, acceptable for a personal learning tool.
 
-  return `You are a Korean language tutor. Adapt the following article for a TOPIK ${topikLevel} learner (${TOPIK_DESCRIPTIONS[topikLevel]}).
-${wordBankSection}
-Article:
-${content}
+const SYSTEM_PROMPT = `You are a Korean language learning assistant. You adapt articles for Korean learners.
 
-Return ONLY valid JSON with this exact structure (no markdown, no explanation):
+## TOPIK Vocabulary Reference
+### Level 1 (~800 words)
+사과, 물, 학교, 날씨, 가족, 집, 밥, 친구, 시간, 돈, 사람, 나라, 오늘, 내일, 어디 [... full TOPIK level 1 list ...]
+
+### Level 2 (~1500 words)
+경제, 문화, 사회, 환경, 교육, 건강, 직업, 여행, 음식, 세대, 관계, 경험 [... full TOPIK level 2 list ...]
+
+### Level 3–6
+[... levels 3–6 organized by level ...]
+
+## Output Format
+Return ONLY valid JSON (no markdown, no explanation):
 {
-  "adapted_korean": "full article rewritten in Korean at TOPIK ${topikLevel} level",
-  "original_english": "cleaned English version of the article",
-  "new_vocabulary": [
-    {
-      "korean": "word as it appears in adapted text",
-      "english": "English definition",
-      "romanization": "romanization",
-      "example": "example sentence in Korean",
-      "distractors": ["wrong definition 1", "wrong definition 2", "wrong definition 3"]
-    }
+  "adaptedKorean": [
+    { "text": "plain text segment", "type": "text" },
+    { "text": "경제적", "type": "word", "wordId": <topik_words.id>, "topikLevel": <1-6> }
   ],
-  "word_bank_appearances": ["Korean words from the active vocabulary list you used in adapted_korean"],
-  "comprehension_questions": [
-    {
-      "question": "question requiring the reader to have read the article",
-      "options": ["A. option", "B. option", "C. option", "D. option"],
-      "correct": "A"
-    }
+  "comprehensionQuestions": [
+    { "id": "q1", "question": "...", "options": ["...", "...", "...", "..."], "correct": <0-3> }
   ]
 }
 
-Requirements:
-- Include 5-10 new vocabulary words appropriate for TOPIK ${topikLevel}
-- Include EXACTLY 3 comprehension questions
-- Distractors should be plausible but wrong definitions
-- word_bank_appearances: only list words you actually used`
+## Morphology rule
+Korean words inflect heavily. Tag inflected forms with the base word's ID and level.
+Example: 경제적 → wordId for 경제, topikLevel: 2`
+
+export function buildUserMessage(content: string, topikLevel: TopikLevel): string {
+  return `User's TOPIK level: ${topikLevel}
+
+Adapt this article:
+${content}
+
+Rules:
+1. Rewrite in natural Korean — do not translate sentence-by-sentence
+2. Use ~90% vocabulary at or below TOPIK level ${topikLevel}
+3. Include ~10% vocabulary at TOPIK level ${topikLevel + 1} for challenge
+4. For every TOPIK vocabulary word that appears in the text, emit a "word" segment
+   with its topikLevel from the TOPIK reference above
+5. Handle Korean morphology: 경제적 should be tagged as 경제 (level 2)
+6. Generate 3–4 comprehension questions testing article understanding`
+}
+
+export interface AdaptationResponse {
+  adaptedKorean: Array<
+    | { type: 'text'; text: string }
+    | { type: 'word'; text: string; wordId: number; topikLevel: number }
+  >
+  comprehensionQuestions: Array<{
+    id: string
+    question: string
+    options: string[]
+    correct: number
+  }>
 }
 
 export function parseAdaptationResponse(text: string): AdaptationResponse {
@@ -825,8 +866,8 @@ export function parseAdaptationResponse(text: string): AdaptationResponse {
     throw new Error('Claude returned invalid JSON')
   }
 
-  if (!parsed.comprehension_questions || parsed.comprehension_questions.length !== 3) {
-    throw new Error('Response must include exactly 3 comprehension questions')
+  if (!parsed.comprehensionQuestions || parsed.comprehensionQuestions.length < 3) {
+    throw new Error('Response must include at least 3 comprehension questions')
   }
 
   return parsed
@@ -836,15 +877,21 @@ export async function adaptArticle(
   title: string,
   content: string,
   topikLevel: TopikLevel,
-  wordBank: Array<{ korean: string; english: string }>
 ): Promise<AdaptationResponse> {
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
+    system: [
+      {
+        type: 'text',
+        text: SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
     messages: [
       {
         role: 'user',
-        content: `Title: ${title}\n\n${buildAdaptationPrompt(content, topikLevel, wordBank)}`,
+        content: `Title: ${title}\n\n${buildUserMessage(content, topikLevel)}`,
       },
     ],
   })
@@ -852,6 +899,12 @@ export async function adaptArticle(
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
   return parseAdaptationResponse(text)
 }
+
+// Token budget per article (after cache warm):
+// - System prompt cache read: ~12,000 tokens → ~$0.004
+// - User message:               ~800 tokens  → ~$0.002
+// - Output:                    ~1,200 tokens  → ~$0.018
+// - Total:                                      ~$0.024
 ```
 
 **Step 4: Run tests - verify they pass**
