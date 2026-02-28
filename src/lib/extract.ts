@@ -77,6 +77,7 @@ async function fetchRedditContent(
     const articleRes = await fetch(externalUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LangBuddy/1.0)' },
     })
+    if (!articleRes.ok) throw new Error(`Failed to fetch article: ${articleRes.status}`)
     const html = await articleRes.text()
     const { title, content } = await extractArticleContent(html, externalUrl)
     return { title, content, isReddit: true }

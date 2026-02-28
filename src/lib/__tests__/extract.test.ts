@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { isRedditUrl, extractArticleContent } from '@/lib/extract'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { isRedditUrl, extractArticleContent, fetchAndExtract } from '@/lib/extract'
 
 describe('isRedditUrl', () => {
   it('detects reddit.com URLs', () => {
@@ -30,5 +30,31 @@ describe('extractArticleContent', () => {
   it('throws when content cannot be extracted', async () => {
     const html = '<html><body></body></html>'
     await expect(extractArticleContent(html, 'https://example.com')).rejects.toThrow()
+  })
+})
+
+describe('fetchAndExtract', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns needsRedditChoice signal for Reddit URL without type', async () => {
+    const mockPost = {
+      title: 'Test Post',
+      selftext: '',
+      url: 'https://external-article.com/story',
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([
+        { data: { children: [{ data: mockPost }] } },
+        { data: { children: [] } },
+      ]),
+    }))
+
+    const result = await fetchAndExtract('https://www.reddit.com/r/test/comments/abc/title')
+    expect(result.isReddit).toBe(true)
+    expect(result.hasLinkedArticle).toBe(true)
+    expect(result.content).toBe('')
   })
 })
