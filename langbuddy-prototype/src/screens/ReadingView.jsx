@@ -60,7 +60,7 @@ export default function ReadingView() {
         {showEnglish ? (
           <p className="text-gray-700 leading-relaxed text-base">{article.englishText}</p>
         ) : (
-          <p className="text-gray-900 leading-loose text-lg">
+          <div className="text-gray-900 leading-loose text-lg">
             {article.adaptedKorean.map((segment, i) => {
               if (segment.type === 'text') {
                 return <span key={i}>{segment.text}</span>
@@ -87,9 +87,12 @@ export default function ReadingView() {
                   </span>
                 )
               }
+              if (segment.type === 'break') {
+                return <div key={i} className="mt-4" />
+              }
               return null
             })}
-          </p>
+          </div>
         )}
 
         <div className="flex gap-4 mt-6 pt-4 border-t border-gray-100">
