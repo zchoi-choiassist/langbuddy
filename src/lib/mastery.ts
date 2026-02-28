@@ -1,4 +1,4 @@
-import { MASTERY_MIN, MASTERY_MAX, MASTERY_KNOWN_THRESHOLD } from './constants'
+import { MASTERY_MIN, MASTERY_MAX, MASTERY_KNOWN_THRESHOLD, TopikLevel } from './constants'
 
 export function updateMastery(current: number, correct: boolean): number {
   const next = correct ? current + 1 : current - 1
@@ -12,8 +12,8 @@ export type SegmentColor = 'blue' | 'orange' | 'gray'
 // - blue:   word is at or below user's level AND mastery is low (needs practice)
 // - gray:   word is at or below user's level AND mastery is high (known)
 export function segmentColor(
-  wordTopikLevel: number,
-  userTopikLevel: number,
+  wordTopikLevel: TopikLevel,
+  userTopikLevel: TopikLevel,
   mastery: number
 ): SegmentColor {
   if (wordTopikLevel > userTopikLevel) return 'orange'
