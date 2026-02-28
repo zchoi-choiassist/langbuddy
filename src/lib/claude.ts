@@ -61,6 +61,7 @@ Return ONLY valid JSON, no markdown fences, no explanation:
 - Only tag words that appear in the TOPIK reference above`
 
 export function buildUserMessage(content: string, topikLevel: TopikLevel): string {
+  const challengeLevel = Math.min(topikLevel + 1, 6)
   return `User's TOPIK ${topikLevel}
 
 Adapt this article into Korean at TOPIK ${topikLevel}:
@@ -70,7 +71,7 @@ ${content}
 Adaptation rules:
 1. Rewrite in natural Korean — do not translate sentence-by-sentence
 2. Use ~90% vocabulary at or below TOPIK ${topikLevel}
-3. Include ~10% vocabulary at TOPIK ${topikLevel + 1} for challenge
+3. Include ~10% vocabulary at TOPIK ${challengeLevel} for challenge
 4. For every TOPIK word that appears, emit a "word" segment with its wordId and topikLevel
 5. Use "break" segments between paragraphs
 6. Generate exactly 3 comprehension questions`
@@ -82,6 +83,10 @@ export function parseAdaptationResponse(text: string): AdaptationResponse {
     parsed = JSON.parse(text)
   } catch {
     throw new Error('Claude returned invalid JSON')
+  }
+
+  if (!Array.isArray(parsed.adaptedKorean)) {
+    throw new Error('Response must include an adaptedKorean array')
   }
 
   if (!Array.isArray(parsed.comprehensionQuestions) || parsed.comprehensionQuestions.length < 3) {
@@ -114,6 +119,9 @@ export async function adaptArticle(
     ],
   })
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : ''
-  return parseAdaptationResponse(text)
+  const block = message.content[0]
+  if (!block || block.type !== 'text') {
+    throw new Error(`Unexpected Claude response content type: ${block?.type}`)
+  }
+  return parseAdaptationResponse(block.text)
 }
