@@ -77,4 +77,40 @@ describe('SegmentRenderer', () => {
     )
     expect(container.querySelectorAll('div.mt-4').length).toBe(1)
   })
+
+  it('applies blue color for same-level word with low mastery', () => {
+    render(
+      <SegmentRenderer
+        segments={segments}
+        masteryMap={new Map([[42, 50]])}
+        userTopikLevel={2}
+        onWordTap={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: '경제' }).className).toContain('blue')
+  })
+
+  it('applies gray color for same-level word with high mastery', () => {
+    render(
+      <SegmentRenderer
+        segments={segments}
+        masteryMap={new Map([[42, 70]])}
+        userTopikLevel={2}
+        onWordTap={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: '경제' }).className).toContain('gray')
+  })
+
+  it('defaults mastery to 0 when wordId is absent from masteryMap', () => {
+    render(
+      <SegmentRenderer
+        segments={segments}
+        masteryMap={new Map()}
+        userTopikLevel={2}
+        onWordTap={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: '경제' }).className).toContain('blue')
+  })
 })
