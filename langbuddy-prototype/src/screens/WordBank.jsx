@@ -6,17 +6,18 @@ export default function WordBank() {
   const navigate = useNavigate()
   const { wordBank } = useApp()
   const [selectedWord, setSelectedWord] = useState(null)
-  const [sortBy, setSortBy] = useState('mastery')
+  const [filter, setFilter] = useState('mastery')
 
-  const activeWords = wordBank
-    .filter(w => w.masteryLevel < 100)
-    .sort((a, b) =>
-      sortBy === 'mastery'
-        ? a.masteryLevel - b.masteryLevel
-        : new Date(b.addedAt) - new Date(a.addedAt)
-    )
+  const applyFilter = (words) => {
+    if (filter === 'topik1') return words.filter(w => w.topikLevel === 1).sort((a, b) => a.masteryLevel - b.masteryLevel)
+    if (filter === 'topik2') return words.filter(w => w.topikLevel === 2).sort((a, b) => a.masteryLevel - b.masteryLevel)
+    if (filter === 'alpha') return [...words].sort((a, b) => a.korean.localeCompare(b.korean, 'ko'))
+    if (filter === 'added') return [...words].sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt))
+    return [...words].sort((a, b) => a.masteryLevel - b.masteryLevel)
+  }
 
-  const masteredWords = wordBank.filter(w => w.masteryLevel >= 100)
+  const activeWords = applyFilter(wordBank.filter(w => w.masteryLevel < 100))
+  const masteredWords = applyFilter(wordBank.filter(w => w.masteryLevel >= 100))
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-gray-50">
@@ -29,18 +30,24 @@ export default function WordBank() {
       </header>
 
       <div className="px-4 py-4">
-        <div className="flex gap-2 mb-5">
-          {['mastery', 'date'].map(key => (
+        <div className="flex flex-wrap gap-2 mb-5">
+          {[
+            { key: 'mastery', label: 'By Mastery' },
+            { key: 'alpha',   label: 'Dictionary' },
+            { key: 'added',   label: 'Added' },
+            { key: 'topik1',  label: 'TOPIK 1' },
+            { key: 'topik2',  label: 'TOPIK 2' },
+          ].map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setSortBy(key)}
+              onClick={() => setFilter(key)}
               className={`text-sm px-3 py-1.5 rounded-full font-medium transition-colors ${
-                sortBy === key
+                filter === key
                   ? 'bg-blue-500 text-white'
                   : 'bg-white text-gray-600 border border-gray-200'
               }`}
             >
-              {key === 'mastery' ? 'By Mastery' : 'By Date'}
+              {label}
             </button>
           ))}
         </div>
