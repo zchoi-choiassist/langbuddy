@@ -21,7 +21,7 @@ LangBuddy is a personal Korean language learning web app. Core loop: share any a
 ```
 langbuddy-prototype/        ← throwaway interactive prototype
   src/
-    data/articles.js        ← 5 TOPIK 2 articles (hardcoded)
+    data/articles.js        ← 6 TOPIK 2 articles (hardcoded)
     data/wordBank.js        ← 100 words at varied mastery (hardcoded)
     context/AppContext.jsx  ← global state: articles, wordBank, mutations
     screens/                ← ReadingList, ArticleProcessing, ReadingView,
@@ -79,6 +79,27 @@ After `npm create vite`, always delete: `src/App.css`, `src/assets/react.svg`, `
 ### Vocab items must be linked in `adaptedKorean`
 
 If a word appears in `article.vocabulary[]`, it must also appear as a `type: 'vocab'` segment in `adaptedKorean`. Otherwise the word is dead data — never surfaced to the user and never tappable. Always audit this when writing article data.
+
+### Validating article data without the dev server
+
+Use Node's dynamic import to validate article data integrity after edits:
+
+```bash
+cd langbuddy-prototype
+node -e "
+import('./src/data/articles.js').then(m => {
+  const art = m.initialArticles.find(a => a.id === 'art-6');
+  const vocabSegs = art.adaptedKorean.filter(s => s.type === 'vocab').map(s => s.vocabId);
+  art.vocabulary.forEach(v => console.log(v.id, vocabSegs.includes(v.id) ? '✓' : '✗ MISSING'));
+});
+"
+```
+
+Checks that every vocabulary[] entry has a matching vocab segment, all wordBankIds are present, question count is correct, and no pre-set userAnswers exist.
+
+### Production word bank model
+
+The production word bank is the full TOPIK I+II dictionary (~2,300 words) pre-seeded in Supabase (`topik_words` table), with per-user mastery in `user_word_mastery`. Segments use `type: 'word'` with `wordId` + `topikLevel` fields instead of the prototype's `vocab`/`wordbank` split. Full schema and Claude prompt spec in the design and implementation docs.
 
 ### Reference documents
 
