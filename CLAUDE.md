@@ -115,6 +115,8 @@ The Word Bank screen uses a `filter` state (not `sortBy`) with five options rend
 
 "By Date" was removed — "Added" is the clearer label for the same concept. Filters apply to both the Active and Mastered sections via a shared `applyFilter()` helper.
 
+**Production TOPIK levels:** TOPIK has 6 levels total — TOPIK I (levels 1–2) and TOPIK II (levels 3–6). In production, `topikLevel` is an integer 1–6, and the Word Bank filter pills should cover all six levels. The prototype collapses this to 1 and 2 for simplicity only — do not carry that assumption into the production build.
+
 ### Production word bank model
 
 The production word bank is the full TOPIK I+II dictionary (~2,300 words) pre-seeded in Supabase (`topik_words` table), with per-user mastery in `user_word_mastery`. Segments use `type: 'word'` with `wordId` + `topikLevel` fields instead of the prototype's `vocab`/`wordbank` split. Full schema and Claude prompt spec in the design and implementation docs.
