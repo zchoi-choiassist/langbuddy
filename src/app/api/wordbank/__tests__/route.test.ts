@@ -2,13 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   authMock,
-  topikData,
-  masteryData,
-  topikRangeMock,
   masteryInMock,
   masteryEqMock,
-  topikOrMock,
-  topikEqMock,
   fromMock,
 } = vi.hoisted(() => {
   const authMock = vi.fn()
