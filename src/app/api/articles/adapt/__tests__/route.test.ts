@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const {
+  const {
   afterMock,
   authMock,
   fetchAndExtractMock,
   isRedditUrlMock,
   normalizeArticleUrlMock,
   adaptArticleMock,
+  analyzeAndPersistArticleWordsMock,
   settingsSingleMock,
   insertMock,
   insertSingleMock,
@@ -22,6 +23,7 @@ const {
   const isRedditUrlMock = vi.fn()
   const normalizeArticleUrlMock = vi.fn()
   const adaptArticleMock = vi.fn()
+  const analyzeAndPersistArticleWordsMock = vi.fn()
   const settingsSingleMock = vi.fn()
   const insertMock = vi.fn()
   const insertSingleMock = vi.fn()
@@ -55,6 +57,7 @@ const {
     isRedditUrlMock,
     normalizeArticleUrlMock,
     adaptArticleMock,
+    analyzeAndPersistArticleWordsMock,
     settingsSingleMock,
     insertMock,
     insertSingleMock,
@@ -84,6 +87,10 @@ vi.mock('@/lib/extract', () => ({
 
 vi.mock('@/lib/claude', () => ({
   adaptArticle: adaptArticleMock,
+}))
+
+vi.mock('@/lib/persist-article-word-matches', () => ({
+  analyzeAndPersistArticleWords: analyzeAndPersistArticleWordsMock,
 }))
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -155,6 +162,11 @@ describe('POST /api/articles/adapt', () => {
     expect(afterMock).toHaveBeenCalledTimes(1)
     expect(fetchAndExtractMock).toHaveBeenCalledWith('https://example.com/story', undefined)
     expect(adaptArticleMock).toHaveBeenCalledWith('Extracted Title', 'Extracted article content', 3)
+    expect(analyzeAndPersistArticleWordsMock).toHaveBeenCalledWith({
+      articleId: 'article-1',
+      userId: 'user-1',
+      adaptedKorean: [{ type: 'text', text: '적응된 내용' }],
+    })
     expect(updateMock).toHaveBeenCalled()
     expect(updateEqMock).toHaveBeenCalledWith('id', 'article-1')
   })

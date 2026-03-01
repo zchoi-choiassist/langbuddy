@@ -3,6 +3,7 @@ import type { TopikLevel } from '@/lib/constants'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { fetchAndExtract, isRedditUrl, normalizeArticleUrl } from '@/lib/extract'
 import { adaptArticle } from '@/lib/claude'
+import { analyzeAndPersistArticleWords } from '@/lib/persist-article-word-matches'
 import { after, NextResponse } from 'next/server'
 
 const PLACEHOLDER_TITLE = 'Adapting article...'
@@ -17,6 +18,7 @@ function coerceTopikLevel(value: number | null | undefined): TopikLevel {
 
 async function runBackgroundAdaptation(
   articleId: string,
+  userId: string,
   url: string,
   topikLevel: TopikLevel,
   redditType?: 'post' | 'article'
@@ -39,6 +41,21 @@ async function runBackgroundAdaptation(
       console.error('[adapt] Failed to persist adapted article:', {
         articleId,
         message: error.message,
+      })
+      return
+    }
+
+    try {
+      await analyzeAndPersistArticleWords({
+        articleId,
+        userId,
+        adaptedKorean: adaptation.adaptedKorean,
+      })
+    } catch (analysisError) {
+      const message = analysisError instanceof Error ? analysisError.message : 'Unknown analysis error'
+      console.error('[adapt] Deterministic analysis failed:', {
+        articleId,
+        message,
       })
     }
   } catch (err) {
@@ -117,6 +134,7 @@ export async function POST(req: Request) {
   after(async () => {
     await runBackgroundAdaptation(
       article.id,
+      userId,
       normalizedUrl,
       topikLevel,
       redditType as 'post' | 'article' | undefined
