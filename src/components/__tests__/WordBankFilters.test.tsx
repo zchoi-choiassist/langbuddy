@@ -1,39 +1,107 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { WordBankFilters } from '@/components/WordBankFilters'
 
-const words = [
-  {
-    word_id: 1,
-    korean: '경제',
-    english: 'economy',
-    romanization: 'gyeongje',
-    mastery: 25,
-    topik_level: 2,
-    times_seen: 8,
-    times_correct: 5,
-  },
-  {
-    word_id: 2,
-    korean: '가족',
-    english: 'family',
-    romanization: 'gajok',
-    mastery: 100,
-    topik_level: 1,
-    times_seen: 12,
-    times_correct: 12,
-  },
-]
+class MockIntersectionObserver {
+  private readonly callback: IntersectionObserverCallback
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback
+  }
+
+  observe = () => {
+    this.callback([{ isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver)
+  }
+
+  disconnect = () => {}
+  unobserve = () => {}
+  takeRecords = () => []
+  root = null
+  rootMargin = '0px'
+  thresholds = [0]
+}
 
 describe('WordBankFilters', () => {
-  it('opens and closes word detail modal', () => {
-    render(<WordBankFilters words={words} />)
+  beforeEach(() => {
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: /경제/ }))
-    expect(screen.getByText('Example')).toBeInTheDocument()
-    expect(screen.getByText('TOPIK 2 · Seen 8 · Correct 5')).toBeInTheDocument()
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
-    expect(screen.queryByText('Example')).not.toBeInTheDocument()
+  it('renders neutral style for mastery 0 and highlighted style for mastery > 0', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      items: [
+        {
+          id: 1,
+          korean: '경제',
+          english: 'economy',
+          romanization: 'gyeongje',
+          topik_level: 2,
+          mastery: 0,
+        },
+        {
+          id: 2,
+          korean: '가족',
+          english: 'family',
+          romanization: 'gajok',
+          topik_level: 1,
+          mastery: 10,
+        },
+      ],
+      nextCursor: null,
+    }))))
+
+    render(<WordBankFilters />)
+
+    const neutral = await screen.findByRole('button', { name: /경제/i })
+    const highlighted = await screen.findByRole('button', { name: /가족/i })
+
+    expect(neutral).toHaveAttribute('data-state', 'neutral')
+    expect(highlighted).toHaveAttribute('data-state', 'highlighted')
+  })
+
+  it('requests next page when sentinel intersects', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        items: [
+          {
+            id: 1,
+            korean: '경제',
+            english: 'economy',
+            romanization: 'gyeongje',
+            topik_level: 2,
+            mastery: 0,
+          },
+        ],
+        nextCursor: 'next-page',
+      })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        items: [
+          {
+            id: 2,
+            korean: '경험',
+            english: 'experience',
+            romanization: 'gyeongheom',
+            topik_level: 2,
+            mastery: 4,
+          },
+        ],
+        nextCursor: null,
+      })))
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<WordBankFilters />)
+
+    await screen.findByRole('button', { name: /경제/i })
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    expect(await screen.findByRole('button', { name: /경험/i })).toBeInTheDocument()
   })
 })

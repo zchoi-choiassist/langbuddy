@@ -20,6 +20,37 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Vocabulary Pipeline
+
+- Article adaptation runs in the background via `POST /api/articles/adapt`.
+- After adaptation persistence, a deterministic analyzer scans adapted Korean text against `topik_words` and `user_custom_words`.
+- Analyzer output is stored in `article_word_matches`, and each successful analysis stamps `articles.last_analyzed_at`.
+
+## Word Bank API
+
+- `GET /api/wordbank` returns TOPIK dictionary rows with user mastery hydration.
+- Query params:
+  - `limit` (default `40`, max `100`)
+  - `topikLevel` (`1`-`6`, optional)
+  - `cursor` (opaque base64 cursor from previous response)
+- Response shape:
+
+```json
+{
+  "items": [
+    {
+      "id": 11,
+      "korean": "경제",
+      "english": "economy",
+      "romanization": "gyeongje",
+      "topik_level": 2,
+      "mastery": 5
+    }
+  ],
+  "nextCursor": "Mi3qsr3soJx8MTE="
+}
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
