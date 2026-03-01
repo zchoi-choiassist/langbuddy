@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ArticleCard } from '@/components/ArticleCard'
 import { TopikSelector } from '@/components/TopikSelector'
+import { AddArticleFab } from '@/components/AddArticleFab'
 import Link from 'next/link'
 
 export default async function HomePage() {
@@ -94,6 +95,7 @@ export default async function HomePage() {
           </p>
         </div>
       )}
+      <AddArticleFab />
     </main>
   )
 }

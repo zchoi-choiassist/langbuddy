@@ -33,7 +33,7 @@ describe('WordBankFilters', () => {
     expect(screen.getByText('Example')).toBeInTheDocument()
     expect(screen.getByText('TOPIK 2 · Seen 8 · Correct 5')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue reading' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.queryByText('Example')).not.toBeInTheDocument()
   })
 })
