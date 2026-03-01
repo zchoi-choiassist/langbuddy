@@ -47,6 +47,10 @@ Rules:
 - If it's a grammatical particle (은, 는, 이, 가, 을, 를, 에, 에서, 도, 의), define it as a particle with its grammatical function
 - If it's an inflected verb form, define the base form`,
         },
+        {
+          role: 'assistant',
+          content: '{',
+        },
       ],
     })
 
@@ -55,7 +59,15 @@ Rules:
       return NextResponse.json({ error: 'Unexpected Claude response' }, { status: 500 })
     }
 
-    const parsed = JSON.parse(block.text)
+    // Reconstruct full JSON (we prefilled with '{')
+    const raw = '{' + block.text
+    const cleaned = raw
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/, '')
+
+    const parsed = JSON.parse(cleaned)
     return NextResponse.json({
       korean,
       english: parsed.english,
