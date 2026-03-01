@@ -46,11 +46,11 @@ const STRIP_SUFFIXES = [
   '의',
 ].sort((a, b) => b.length - a.length)
 
-function normalizeToken(value: string): string {
+export function normalizeKoreanToken(value: string): string {
   return value.normalize('NFC').trim()
 }
 
-function deriveCandidates(token: string): string[] {
+export function deriveBaseCandidates(token: string): string[] {
   const seen = new Set<string>([token])
   const queue = [token]
 
@@ -101,15 +101,15 @@ function tryMatch(
 }
 
 export function analyzeVocabulary(input: AnalyzeVocabularyInput): VocabularyMatch[] {
-  const topikIndex = new Map(input.topikWords.map(word => [normalizeToken(word.korean), word]))
-  const customIndex = new Map(input.customWords.map(word => [normalizeToken(word.korean), word]))
+  const topikIndex = new Map(input.topikWords.map(word => [normalizeKoreanToken(word.korean), word]))
+  const customIndex = new Map(input.customWords.map(word => [normalizeKoreanToken(word.korean), word]))
 
   const results: VocabularyMatch[] = []
   const dedupe = new Set<string>()
 
   for (const token of tokenize(input.text)) {
-    const normalized = normalizeToken(token)
-    const candidates = deriveCandidates(normalized)
+    const normalized = normalizeKoreanToken(token)
+    const candidates = deriveBaseCandidates(normalized)
 
     const topikMatch = tryMatch(candidates, topikIndex, 'topik', token, normalized)
     if (topikMatch) {

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ReadingView } from '@/components/ReadingView'
 import { notFound } from 'next/navigation'
 import type { Article, Segment, TopikWord } from '@/lib/types'
+import { applyDeterministicTopikHighlights } from '@/lib/deterministic-highlights'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -42,28 +43,65 @@ export default async function ArticlePage({ params }: Props) {
     await supabaseAdmin.from('articles').update({ status: 'reading' }).eq('id', id)
   }
 
-  const segments: Segment[] = typedArticle.adapted_korean as Segment[]
-  const wordIds = [...new Set(
-    segments
-      .filter((s): s is Extract<Segment, { type: 'word' }> => s.type === 'word')
-      .map(s => s.wordId)
-  )]
-
-  const [{ data: masteryRows }, { data: wordRows }, { data: settings }] = await Promise.all([
+  const baseSegments: Segment[] = typedArticle.adapted_korean as Segment[]
+  const [{ data: matchRows }, { data: settings }] = await Promise.all([
     supabaseAdmin
-      .from('user_word_mastery')
-      .select('word_id, mastery')
-      .eq('user_id', userId)
-      .in('word_id', wordIds),
-    supabaseAdmin
-      .from('topik_words')
-      .select('id, korean, english, romanization, topik_level')
-      .in('id', wordIds),
+      .from('article_word_matches')
+      .select('source, topik_word_id, base_form')
+      .eq('article_id', id),
     supabaseAdmin
       .from('user_settings')
       .select('topik_level')
       .eq('user_id', userId)
       .single(),
+  ])
+
+  const topikMatchIds = [...new Set(
+    (matchRows ?? [])
+      .filter(row => row.source === 'topik')
+      .map(row => row.topik_word_id)
+      .filter((value): value is number => typeof value === 'number')
+  )]
+
+  const { data: matchedTopikRows } = await supabaseAdmin
+    .from('topik_words')
+    .select('id, topik_level')
+    .in('id', topikMatchIds.length > 0 ? topikMatchIds : [-1])
+
+  const topikLevelById = new Map((matchedTopikRows ?? []).map(row => [row.id, row.topik_level]))
+  const canonicalLookup: Record<string, { wordId: number; topikLevel: 1 | 2 | 3 | 4 | 5 | 6 }> = {}
+  for (const row of matchRows ?? []) {
+    if (row.source !== 'topik' || row.topik_word_id === null) continue
+    const topikLevel = topikLevelById.get(row.topik_word_id)
+    if (!topikLevel) continue
+    if (!canonicalLookup[row.base_form]) {
+      canonicalLookup[row.base_form] = {
+        wordId: row.topik_word_id,
+        topikLevel: topikLevel as 1 | 2 | 3 | 4 | 5 | 6,
+      }
+    }
+  }
+
+  const renderSegments = Object.keys(canonicalLookup).length > 0
+    ? applyDeterministicTopikHighlights(baseSegments, canonicalLookup)
+    : baseSegments
+
+  const wordIds = [...new Set(
+    renderSegments
+      .filter((s): s is Extract<Segment, { type: 'word' }> => s.type === 'word')
+      .map(s => s.wordId)
+  )]
+
+  const [{ data: masteryRows }, { data: wordRows }] = await Promise.all([
+    supabaseAdmin
+      .from('user_word_mastery')
+      .select('word_id, mastery')
+      .eq('user_id', userId)
+      .in('word_id', wordIds.length > 0 ? wordIds : [-1]),
+    supabaseAdmin
+      .from('topik_words')
+      .select('id, korean, english, romanization, topik_level')
+      .in('id', wordIds.length > 0 ? wordIds : [-1]),
   ])
 
   // Fetch distractor candidates per TOPIK level.
@@ -97,7 +135,10 @@ export default async function ArticlePage({ params }: Props) {
 
   return (
     <ReadingView
-      article={typedArticle}
+      article={{
+        ...typedArticle,
+        adapted_korean: renderSegments,
+      }}
       masteryMap={masteryMap}
       wordDetails={wordDetails}
       userTopikLevel={userTopikLevel}
