@@ -1,19 +1,28 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { TOPIK_LEVELS } from '@/lib/constants'
 
 export function TopikSelector({ initial }: { initial: number }) {
+  const router = useRouter()
   const [level, setLevel] = useState(initial)
 
   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newLevel = Number(e.target.value)
+    const prevLevel = level
     setLevel(newLevel)
-    await fetch('/api/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topikLevel: newLevel }),
-    })
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topikLevel: newLevel }),
+      })
+      if (!res.ok) throw new Error('Failed to update TOPIK level')
+      router.refresh()
+    } catch {
+      setLevel(prevLevel)
+    }
   }
 
   return (
