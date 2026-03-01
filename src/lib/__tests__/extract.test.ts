@@ -65,6 +65,37 @@ describe('extractArticleContent', () => {
     vi.doUnmock('jsdom')
     vi.resetModules()
   })
+
+  it('strips ad and ui boilerplate from extracted english content', async () => {
+    vi.resetModules()
+    vi.doMock('@mozilla/readability', () => ({
+      Readability: class {
+        parse() {
+          return {
+            title: 'Live Coverage',
+            textContent:
+              "Live Updates Video Ad Feedback Watch CNN's live coverage as events unfold. • Source: CNN Ad Feedback • Supreme leader killed: Iran has confirmed the death after overnight strikes, and regional officials say emergency meetings are underway while air defense systems remain on high alert.",
+          }
+        }
+      },
+    }))
+    vi.doMock('jsdom', () => ({
+      JSDOM: class {
+        window = { document: {} }
+      },
+    }))
+
+    const { extractArticleContent: mockedExtract } = await import('@/lib/extract')
+    const result = await mockedExtract('<html></html>', 'https://www.cnn.com/world/live-news/example')
+
+    expect(result.content).not.toContain('Ad Feedback')
+    expect(result.content).not.toContain('Live Updates')
+    expect(result.content).toContain('Supreme leader killed')
+
+    vi.doUnmock('@mozilla/readability')
+    vi.doUnmock('jsdom')
+    vi.resetModules()
+  })
 })
 
 describe('fetchAndExtract', () => {

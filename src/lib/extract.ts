@@ -50,9 +50,13 @@ export async function extractArticleContent(
     const reader = new Readability(dom.window.document)
     const article = reader.parse()
     if (!article) throw new Error('Could not extract article content')
+    const cleanedContent = cleanExtractedEnglish(article.textContent ?? '')
+    if (cleanedContent.length < 80) {
+      throw new Error('Could not extract article content')
+    }
     return {
       title: article.title || 'Untitled',
-      content: (article.textContent ?? '').trim(),
+      content: cleanedContent,
     }
   } catch {
     return extractArticleContentFallback(html)
@@ -79,6 +83,7 @@ function extractArticleContentFallback(html: string): { title: string; content: 
   if (!content) {
     content = normalizeText(stripTags(extractTagTextRaw(sanitized, 'body') || sanitized))
   }
+  content = cleanExtractedEnglish(content)
 
   if (content.length < 80) {
     throw new Error('Could not extract article content')
@@ -118,6 +123,44 @@ function normalizeText(value: string): string {
   return decodeHtmlEntities(value)
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+const NOISE_LINE_PATTERNS = [
+  /^live updates\b/i,
+  /^video\b/i,
+  /^ad feedback\b/i,
+  /^watch [\w\s']*live coverage\b/i,
+  /^source:\s*cnn\b/i,
+  /^(advertisement|sponsored content|cookie settings|privacy policy|terms of use|sign up|subscribe)\b/i,
+]
+
+const INLINE_NOISE_PATTERNS = [
+  /\bAd Feedback\b/gi,
+]
+
+function isNoiseLine(line: string): boolean {
+  const normalized = line.trim()
+  if (!normalized) return true
+  return NOISE_LINE_PATTERNS.some(pattern => pattern.test(normalized))
+}
+
+function cleanExtractedEnglish(value: string): string {
+  const candidateLines = decodeHtmlEntities(value)
+    .replace(/\u2022/g, '\n')
+    .replace(/\s*\|\s*/g, '\n')
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line =>
+      INLINE_NOISE_PATTERNS.reduce(
+        (cleaned, pattern) => cleaned.replace(pattern, '').replace(/\s+/g, ' ').trim(),
+        line
+      )
+    )
+    .filter(line => line.length > 0)
+    .filter(line => !isNoiseLine(line))
+
+  return candidateLines.join('\n\n').trim()
 }
 
 function decodeHtmlEntities(value: string): string {
