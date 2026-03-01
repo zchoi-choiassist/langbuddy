@@ -31,6 +31,40 @@ describe('extractArticleContent', () => {
     const html = '<html><body></body></html>'
     await expect(extractArticleContent(html, 'https://example.com')).rejects.toThrow()
   })
+
+  it('falls back to regex extraction when readability modules fail to load', async () => {
+    vi.resetModules()
+    vi.doMock('@mozilla/readability', () => {
+      throw new Error('readability load failed')
+    })
+    vi.doMock('jsdom', () => {
+      throw new Error('jsdom load failed')
+    })
+
+    const { extractArticleContent: fallbackExtract } = await import('@/lib/extract')
+
+    const html = `
+      <html>
+        <head>
+          <meta property="og:title" content="Fallback Headline" />
+          <title>Ignored Title</title>
+        </head>
+        <body>
+          <p>First paragraph with enough content to be selected by fallback extraction logic safely.</p>
+          <p>Second paragraph with additional article content so total extracted text is substantial.</p>
+        </body>
+      </html>
+    `
+
+    const result = await fallbackExtract(html, 'https://example.com/story')
+    expect(result.title).toBe('Fallback Headline')
+    expect(result.content).toContain('First paragraph')
+    expect(result.content).toContain('Second paragraph')
+
+    vi.doUnmock('@mozilla/readability')
+    vi.doUnmock('jsdom')
+    vi.resetModules()
+  })
 })
 
 describe('fetchAndExtract', () => {

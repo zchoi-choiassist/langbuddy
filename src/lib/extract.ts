@@ -1,6 +1,3 @@
-import { Readability } from '@mozilla/readability'
-import { JSDOM } from 'jsdom'
-
 export interface ExtractedContent {
   title: string
   content: string
@@ -43,14 +40,98 @@ export async function extractArticleContent(
   html: string,
   url: string
 ): Promise<{ title: string; content: string }> {
-  const dom = new JSDOM(html, { url })
-  const reader = new Readability(dom.window.document)
-  const article = reader.parse()
-  if (!article) throw new Error('Could not extract article content')
-  return {
-    title: article.title || 'Untitled',
-    content: (article.textContent ?? '').trim(),
+  try {
+    const [{ Readability }, { JSDOM }] = await Promise.all([
+      import('@mozilla/readability'),
+      import('jsdom'),
+    ])
+
+    const dom = new JSDOM(html, { url })
+    const reader = new Readability(dom.window.document)
+    const article = reader.parse()
+    if (!article) throw new Error('Could not extract article content')
+    return {
+      title: article.title || 'Untitled',
+      content: (article.textContent ?? '').trim(),
+    }
+  } catch {
+    return extractArticleContentFallback(html)
   }
+}
+
+function extractArticleContentFallback(html: string): { title: string; content: string } {
+  const sanitized = html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+
+  const title =
+    extractMetaContent(sanitized, 'property', 'og:title') ||
+    extractMetaContent(sanitized, 'name', 'twitter:title') ||
+    extractTagText(sanitized, 'title') ||
+    'Untitled'
+
+  const paragraphs = Array.from(sanitized.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi))
+    .map(match => normalizeText(stripTags(match[1])))
+    .filter(text => text.length >= 35)
+
+  let content = paragraphs.join('\n\n').trim()
+  if (!content) {
+    content = normalizeText(stripTags(extractTagTextRaw(sanitized, 'body') || sanitized))
+  }
+
+  if (content.length < 80) {
+    throw new Error('Could not extract article content')
+  }
+
+  return { title: normalizeText(title), content }
+}
+
+function extractMetaContent(html: string, attrName: string, attrValue: string): string | null {
+  const escapedValue = escapeRegExp(attrValue)
+  const metaPattern = new RegExp(
+    `<meta[^>]*${attrName}=["']${escapedValue}["'][^>]*content=["']([^"']+)["'][^>]*>`,
+    'i'
+  )
+  const reversePattern = new RegExp(
+    `<meta[^>]*content=["']([^"']+)["'][^>]*${attrName}=["']${escapedValue}["'][^>]*>`,
+    'i'
+  )
+  return metaPattern.exec(html)?.[1] ?? reversePattern.exec(html)?.[1] ?? null
+}
+
+function extractTagText(html: string, tag: string): string | null {
+  const raw = extractTagTextRaw(html, tag)
+  return raw ? normalizeText(stripTags(raw)) : null
+}
+
+function extractTagTextRaw(html: string, tag: string): string | null {
+  const pattern = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i')
+  return pattern.exec(html)?.[1] ?? null
+}
+
+function stripTags(value: string): string {
+  return value.replace(/<[^>]+>/g, ' ')
+}
+
+function normalizeText(value: string): string {
+  return decodeHtmlEntities(value)
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export async function fetchAndExtract(
