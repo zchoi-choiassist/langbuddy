@@ -13,7 +13,7 @@ export default function ArticleProcessing() {
       navigate(`/reading/${id}`)
     }, 2000)
     return () => clearTimeout(timer)
-  }, [id])
+  }, [id, navigate, startReading])
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white flex flex-col items-center justify-center">

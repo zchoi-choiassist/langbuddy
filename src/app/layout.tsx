@@ -1,5 +1,30 @@
 import type { Metadata } from "next";
+import { Instrument_Serif, JetBrains_Mono, Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import "./globals.css";
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-display-next",
+});
+
+const notoSerifKr = Noto_Serif_KR({
+  subsets: ["latin"],
+  weight: ["300", "400", "600", "700"],
+  variable: "--font-korean-serif-next",
+});
+
+const notoSansKr = Noto_Sans_KR({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-body-next",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  variable: "--font-mono-next",
+});
 
 export const metadata: Metadata = {
   title: "LangBuddy",
@@ -14,12 +39,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Serif+KR:wght@300;400;600;700&family=Pretendard+Variable&family=JetBrains+Mono:wght@400;600&display=swap"
-          rel="stylesheet"
-        />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#F8F5F0" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -30,7 +49,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased">
+      <body
+        className={`${instrumentSerif.variable} ${notoSerifKr.variable} ${notoSansKr.variable} ${jetbrainsMono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>

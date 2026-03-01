@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ComprehensionQuiz } from '@/components/ComprehensionQuiz'
 import { notFound, redirect } from 'next/navigation'
+import type { ComprehensionQuestion } from '@/lib/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -20,6 +21,7 @@ export default async function ComprehensionPage({ params }: Props) {
 
   if (!article) notFound()
   if (article.status === 'completed') redirect(`/articles/${id}/summary`)
+  const questions = (article.comprehension_questions ?? []) as ComprehensionQuestion[]
 
-  return <ComprehensionQuiz articleId={id} questions={article.comprehension_questions as any} />
+  return <ComprehensionQuiz articleId={id} questions={questions} />
 }

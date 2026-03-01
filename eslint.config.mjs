@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated prototype bundle is minified output, not source code.
+    "langbuddy-prototype/dist/**",
   ]),
 ]);
 

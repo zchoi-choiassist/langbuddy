@@ -13,7 +13,7 @@ export default function SummaryScore() {
     if (article && article.status !== 'completed') {
       completeArticle(id)
     }
-  }, [id])
+  }, [article, completeArticle, id])
 
   if (!article) return null
 

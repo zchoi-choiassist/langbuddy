@@ -1,18 +1,31 @@
 import { useState, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 
+function hashSeed(value) {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0
+  }
+  return hash >>> 0
+}
+
+function deterministicShuffle(items, seed) {
+  return [...items].sort((a, b) => hashSeed(`${seed}:${a}`) - hashSeed(`${seed}:${b}`))
+}
+
 export default function WordQuizPopup({ vocabItem, articleId, onClose }) {
   const { wordBank, handleWordQuizAnswer } = useApp()
   const [selectedOption, setSelectedOption] = useState(null)
 
   const options = useMemo(() => {
-    const distractors = wordBank
-      .map(w => w.english)
-      .filter(e => e !== vocabItem.english)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3)
-    return [vocabItem.english, ...distractors].sort(() => Math.random() - 0.5)
-  }, [vocabItem.korean])
+    const distractors = deterministicShuffle(
+      wordBank
+        .map(w => w.english)
+        .filter(e => e !== vocabItem.english),
+      `${vocabItem.korean}:distractors`
+    ).slice(0, 3)
+    return deterministicShuffle([vocabItem.english, ...distractors], `${vocabItem.korean}:options`)
+  }, [wordBank, vocabItem.english, vocabItem.korean])
 
   function handleAnswer(option) {
     if (selectedOption !== null) return
