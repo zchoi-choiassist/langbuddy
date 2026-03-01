@@ -5,15 +5,20 @@ export function updateMastery(current: number, correct: boolean): number {
   return Math.max(MASTERY_MIN, Math.min(MASTERY_MAX, next))
 }
 
-export type SegmentColor = 'blue' | 'gray'
+export type SegmentColor = 'blue' | 'orange' | 'gray' | 'indigo'
 
 // Determines highlight color for a word segment:
 // - gray: mastery is 0 (unseen)
-// - blue: mastery is above 0 (encountered)
+// - blue: mastery is 1-99 (encountered)
+// - indigo: mastery is 100 (mastered)
+// - orange: word is above user's TOPIK level (challenge), unless mastered
 export function segmentColor(
-  _wordTopikLevel: TopikLevel,
-  _userTopikLevel: TopikLevel,
+  wordTopikLevel: TopikLevel,
+  userTopikLevel: TopikLevel,
   mastery: number
 ): SegmentColor {
-  return mastery > 0 ? 'blue' : 'gray'
+  if (mastery >= 100) return 'indigo'
+  if (wordTopikLevel > userTopikLevel) return 'orange'
+  if (mastery > 0) return 'blue'
+  return 'gray'
 }

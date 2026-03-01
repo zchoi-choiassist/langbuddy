@@ -21,13 +21,18 @@ describe('updateMastery', () => {
 
 describe('segmentColor', () => {
   it('returns gray for unseen words', () => {
-    expect(segmentColor(3, 2, 0)).toBe('gray')
+    expect(segmentColor(2, 2, 0)).toBe('gray')
   })
   it('returns blue for encountered words', () => {
     expect(segmentColor(2, 2, 1)).toBe('blue')
   })
-  it('ignores topik level when computing color', () => {
-    expect(segmentColor(1, 6, 0)).toBe('gray')
-    expect(segmentColor(6, 1, 5)).toBe('blue')
+  it('returns orange for words above user level when not mastered', () => {
+    expect(segmentColor(6, 1, 5)).toBe('orange')
+  })
+  it('returns indigo for mastered words', () => {
+    expect(segmentColor(2, 2, 100)).toBe('indigo')
+  })
+  it('uses mastered color over topik-level challenge color', () => {
+    expect(segmentColor(6, 1, 100)).toBe('indigo')
   })
 })

@@ -48,7 +48,7 @@ describe('SegmentRenderer', () => {
     expect(onWordTap).toHaveBeenCalledWith(42)
   })
 
-  it('applies neutral gray color for unseen words regardless of topik level', () => {
+  it('applies orange color for words above user topik level', () => {
     render(
       <SegmentRenderer
         segments={segments}
@@ -58,7 +58,7 @@ describe('SegmentRenderer', () => {
       />
     )
     const btn = screen.getByRole('button', { name: '경제' })
-    expect(btn).toHaveAttribute('data-color', 'gray')
+    expect(btn).toHaveAttribute('data-color', 'orange')
   })
 
   it('renders break segment as a div spacer', () => {
@@ -88,6 +88,18 @@ describe('SegmentRenderer', () => {
       />
     )
     expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'blue')
+  })
+
+  it('applies indigo color for mastery 100 even above user level', () => {
+    render(
+      <SegmentRenderer
+        segments={segments}
+        masteryMap={new Map([[42, 100]])}
+        userTopikLevel={1}
+        onWordTap={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'indigo')
   })
 
   it('defaults mastery to 0 when wordId is absent from masteryMap', () => {

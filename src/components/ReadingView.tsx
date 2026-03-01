@@ -98,14 +98,22 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
                 userTopikLevel={userTopikLevel}
                 onWordTap={setActiveWordId}
               />
-              <div className="mt-7 flex gap-5 border-t border-border-subtle pt-5 text-xs text-text-tertiary">
+              <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 border-t border-border-subtle pt-5 text-xs text-text-tertiary">
                 <span className="flex items-center gap-1.5">
                   <span className="inline-block h-0.5 w-4 rounded-sm bg-border-light" />
                   Unseen (mastery 0)
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="inline-block h-0.5 w-4 rounded-sm bg-accent-celadon" />
-                  Encountered (mastery {`>`} 0)
+                  Encountered (1-99)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-0.5 w-4 rounded-sm bg-accent-indigo" />
+                  Mastered (100)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-0.5 w-4 rounded-sm bg-[#E2A563]" />
+                  Above TOPIK level
                 </span>
               </div>
             </>

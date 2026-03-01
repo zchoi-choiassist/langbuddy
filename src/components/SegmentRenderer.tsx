@@ -3,8 +3,10 @@ import type { Segment } from '@/lib/types'
 import type { TopikLevel } from '@/lib/constants'
 
 const COLOR_CLASSES: Record<string, string> = {
+  orange: 'border-[#E2A563] hover:bg-[#FEF3C7]',
   blue: 'border-accent-celadon hover:bg-accent-celadon-light',
   gray: 'border-border-light hover:bg-bg-subtle',
+  indigo: 'border-accent-indigo hover:bg-bg-subtle',
 }
 
 interface SegmentRendererProps {
