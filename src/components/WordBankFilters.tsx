@@ -1,53 +1,124 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TOPIK_LEVELS } from '@/lib/constants'
 
-interface Word {
-  word_id: number
+interface WordBankItem {
+  id: number
   korean: string
-  english: string
-  romanization: string
+  english: string | null
+  romanization: string | null
   mastery: number
   topik_level: number
-  times_seen: number
-  times_correct: number
+}
+
+interface WordBankResponse {
+  items: WordBankItem[]
+  nextCursor: string | null
 }
 
 const FILTERS = [
-  { key: 'mastery', label: 'Mastery' },
-  { key: 'alpha', label: 'A-Z' },
-  { key: 'added', label: 'Added' },
+  { key: 'all', label: 'All' },
   ...TOPIK_LEVELS.map(level => ({ key: `topik${level}`, label: `TOPIK ${level}` })),
 ] as const
 
 type FilterKey = typeof FILTERS[number]['key']
 
-function fallbackExample(word: Word) {
+function fallbackExample(word: WordBankItem) {
   return {
     korean: <>한국 <strong>{word.korean}</strong>를 자주 사용해요.</>,
-    english: `I use the word "${word.english}" often in Korean.`,
+    english: `I use the word "${word.english ?? word.korean}" often in Korean.`,
   }
 }
 
-export function WordBankFilters({ words }: { words: Word[] }) {
-  const [filter, setFilter] = useState<FilterKey>('mastery')
-  const [selectedWord, setSelectedWord] = useState<Word | null>(null)
+async function fetchWordBankPage({
+  topikLevel,
+  cursor,
+}: {
+  topikLevel: number | null
+  cursor: string | null
+}): Promise<WordBankResponse> {
+  const params = new URLSearchParams()
+  params.set('limit', '40')
+  if (topikLevel !== null) params.set('topikLevel', String(topikLevel))
+  if (cursor) params.set('cursor', cursor)
 
-  const filtered = useMemo(() => {
-    let result = [...words]
-    const topikMatch = filter.match(/^topik(\d)$/)
-    if (topikMatch) {
-      const level = Number(topikMatch[1])
-      result = result.filter(word => word.topik_level === level)
+  const res = await fetch(`/api/wordbank?${params.toString()}`)
+  if (!res.ok) {
+    throw new Error('Failed to load word bank')
+  }
+  return res.json()
+}
+
+export function WordBankFilters() {
+  const [filter, setFilter] = useState<FilterKey>('all')
+  const [selectedWord, setSelectedWord] = useState<WordBankItem | null>(null)
+  const [items, setItems] = useState<WordBankItem[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [isPaging, setIsPaging] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const topikLevel = useMemo(() => {
+    const match = filter.match(/^topik(\d)$/)
+    return match ? Number(match[1]) : null
+  }, [filter])
+
+  const loadFirstPage = useCallback(async () => {
+    setIsInitialLoading(true)
+    setError(null)
+    try {
+      const data = await fetchWordBankPage({ topikLevel, cursor: null })
+      setItems(data.items)
+      setNextCursor(data.nextCursor)
+    } catch {
+      setItems([])
+      setNextCursor(null)
+      setError('Unable to load words right now.')
+    } finally {
+      setIsInitialLoading(false)
     }
-    if (filter === 'alpha') return result.sort((a, b) => a.korean.localeCompare(b.korean, 'ko'))
-    if (filter === 'added') return result.sort((a, b) => b.times_seen - a.times_seen)
-    return result.sort((a, b) => a.mastery - b.mastery)
-  }, [words, filter])
+  }, [topikLevel])
 
-  const active = filtered.filter(word => word.mastery < 100)
-  const mastered = filtered.filter(word => word.mastery >= 100)
+  const loadNextPage = useCallback(async () => {
+    if (isPaging || !nextCursor) return
+
+    setIsPaging(true)
+    try {
+      const data = await fetchWordBankPage({ topikLevel, cursor: nextCursor })
+      setItems(current => {
+        const byId = new Map(current.map(word => [word.id, word]))
+        for (const item of data.items) {
+          byId.set(item.id, item)
+        }
+        return Array.from(byId.values())
+      })
+      setNextCursor(data.nextCursor)
+    } catch {
+      setError('Unable to load more words.')
+    } finally {
+      setIsPaging(false)
+    }
+  }, [isPaging, nextCursor, topikLevel])
+
+  useEffect(() => {
+    void loadFirstPage()
+  }, [loadFirstPage])
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!sentinelRef.current || !nextCursor) return
+
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        void loadNextPage()
+      }
+    }, { rootMargin: '240px' })
+
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [loadNextPage, nextCursor])
 
   return (
     <>
@@ -67,25 +138,29 @@ export function WordBankFilters({ words }: { words: Word[] }) {
         ))}
       </div>
 
-      <h2 className="px-5 pb-2 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
-        Active · {active.length} words
-      </h2>
-      <div className="space-y-2 px-4 pb-5">
-        {active.map((word, index) => (
-          <WordRow key={word.word_id} word={word} index={index} onClick={() => setSelectedWord(word)} />
-        ))}
-      </div>
+      {error && (
+        <p className="px-5 pb-4 text-sm text-accent-vermillion">{error}</p>
+      )}
 
-      {mastered.length > 0 && (
+      {isInitialLoading ? (
+        <div className="space-y-2 px-4 pb-8" aria-label="wordbank-loading">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-[76px] animate-pulse rounded-button bg-bg-surface shadow-card" />
+          ))}
+        </div>
+      ) : (
         <>
-          <h2 className="px-5 pb-2 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
-            Mastered · {mastered.length} words
-          </h2>
-          <div className="space-y-2 px-4 pb-8">
-            {mastered.map((word, index) => (
-              <WordRow key={word.word_id} word={word} index={index} mastered onClick={() => setSelectedWord(word)} />
+          <div className="space-y-2 px-4 pb-2">
+            {items.map((word, index) => (
+              <WordRow key={word.id} word={word} index={index} onClick={() => setSelectedWord(word)} />
             ))}
           </div>
+
+          <div ref={sentinelRef} data-testid="wordbank-sentinel" className="h-12" />
+
+          {isPaging && (
+            <p className="pb-8 text-center text-xs font-medium text-text-tertiary">Loading more words…</p>
+          )}
         </>
       )}
 
@@ -98,37 +173,43 @@ export function WordBankFilters({ words }: { words: Word[] }) {
 
 function WordRow({
   word,
-  mastered,
   index,
   onClick,
 }: {
-  word: Word
-  mastered?: boolean
+  word: WordBankItem
   index: number
   onClick: () => void
 }) {
+  const isHighlighted = word.mastery > 0
+
   return (
     <button
       onClick={onClick}
       style={{ animationDelay: `${index * 40}ms` }}
-      className={`w-full rounded-button bg-bg-surface px-[18px] py-4 text-left shadow-card transition-all duration-200 [transition-timing-function:var(--ease-out)] hover:-translate-y-px hover:shadow-card-hover animate-cardIn ${
-        mastered ? 'opacity-60' : ''
+      data-state={isHighlighted ? 'highlighted' : 'neutral'}
+      className={`w-full rounded-button px-[18px] py-4 text-left shadow-card transition-all duration-200 [transition-timing-function:var(--ease-out)] hover:-translate-y-px hover:shadow-card-hover animate-cardIn ${
+        isHighlighted ? 'bg-accent-celadon-light' : 'bg-bg-surface'
       }`}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="font-korean-serif text-lg font-semibold text-text-primary">{word.korean}</div>
-          <p className="truncate text-[13px] text-text-secondary">{word.english}</p>
+          <p className="truncate text-[13px] text-text-secondary">{word.english ?? 'No definition yet'}</p>
         </div>
         <div className="h-1 w-12 shrink-0 overflow-hidden rounded bg-bg-subtle">
-          <div className="h-full rounded bg-accent-celadon transition-[width] duration-[600ms]" style={{ width: `${word.mastery}%` }} />
+          <div
+            className={`h-full rounded transition-[width] duration-[600ms] ${
+              isHighlighted ? 'bg-accent-celadon' : 'bg-border-light'
+            }`}
+            style={{ width: `${Math.max(word.mastery, 2)}%` }}
+          />
         </div>
       </div>
     </button>
   )
 }
 
-function WordDetailModal({ word, onClose }: { word: Word; onClose: () => void }) {
+function WordDetailModal({ word, onClose }: { word: WordBankItem; onClose: () => void }) {
   const example = fallbackExample(word)
 
   return (
@@ -139,7 +220,7 @@ function WordDetailModal({ word, onClose }: { word: Word; onClose: () => void })
       >
         <div className="mx-auto mb-6 h-1 w-9 rounded bg-border-light" />
         <div className="mb-1 text-center font-korean-serif text-[32px] font-bold text-text-primary">{word.korean}</div>
-        <div className="mb-6 text-center text-[15px] text-text-secondary">{word.english}</div>
+        <div className="mb-6 text-center text-[15px] text-text-secondary">{word.english ?? 'No definition yet'}</div>
 
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[13px] text-text-secondary">Mastery</span>
@@ -158,7 +239,7 @@ function WordDetailModal({ word, onClose }: { word: Word; onClose: () => void })
         </div>
 
         <div className="mb-4 text-center font-mono text-xs font-semibold text-accent-celadon">
-          TOPIK {word.topik_level} · Seen {word.times_seen} · Correct {word.times_correct}
+          TOPIK {word.topik_level}
         </div>
 
         <button
