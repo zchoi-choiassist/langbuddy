@@ -23,8 +23,18 @@ describe('ArticleCard', () => {
     expect(screen.getByText('r/korea')).toBeInTheDocument()
   })
 
+  it('shows domain for non-Reddit URLs', () => {
+    render(<ArticleCard article={{ ...article, source_url: 'https://bbc.com/news/article' }} />)
+    expect(screen.getByText('bbc.com')).toBeInTheDocument()
+  })
+
   it('shows score for completed articles', () => {
     render(<ArticleCard article={{ ...article, status: 'completed', total_score: 42 }} />)
     expect(screen.getByText(/42/)).toBeInTheDocument()
+  })
+
+  it('does not show score for unread articles', () => {
+    render(<ArticleCard article={{ ...article, status: 'unread', total_score: 0 }} />)
+    expect(screen.queryByText(/pts/i)).not.toBeInTheDocument()
   })
 })

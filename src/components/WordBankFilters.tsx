@@ -16,7 +16,7 @@ interface Word {
 const FILTERS = [
   { key: 'mastery', label: 'By Mastery' },
   { key: 'alpha',   label: 'Dictionary' },
-  { key: 'added',   label: 'Added' },
+  { key: 'added',   label: 'Most Seen' },
   ...TOPIK_LEVELS.map(l => ({ key: `topik${l}`, label: `TOPIK ${l}` })),
 ] as const
 
