@@ -50,16 +50,19 @@ export default async function ArticlePage({ params }: Props) {
       .single(),
   ])
 
-  // Fetch distractor candidates per TOPIK level (30 words per level, server shuffled)
+  // Fetch distractor candidates per TOPIK level.
+  // Use a random page offset (0-4) so different article loads surface different words.
   const levels = [...new Set((wordRows ?? []).map(r => r.topik_level))]
   const distractorResults = await Promise.all(
-    levels.map(level =>
-      supabaseAdmin
+    levels.map(level => {
+      const offset = Math.floor(Math.random() * 5) * 50
+      return supabaseAdmin
         .from('topik_words')
         .select('english')
         .eq('topik_level', level)
-        .limit(30)
-    )
+        .order('id', { ascending: true })
+        .range(offset, offset + 49)
+    })
   )
   const distractorPools: Record<number, string[]> = {}
   levels.forEach((level, i) => {
@@ -70,6 +73,8 @@ export default async function ArticlePage({ params }: Props) {
   const wordDetails = new Map((wordRows ?? []).map(r => {
     const pool = (distractorPools[r.topik_level] ?? []).filter(e => e !== r.english)
     const distractors = [...pool].sort(() => Math.random() - 0.5).slice(0, 3)
+    // Guard: if pool is too small, pad with level label so quiz always has 4 choices
+    while (distractors.length < 3) distractors.push(`(TOPIK ${r.topik_level} word)`)
     return [r.id, { ...r, distractors }]
   }))
   const userTopikLevel = settings?.topik_level ?? 2

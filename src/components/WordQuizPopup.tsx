@@ -8,7 +8,7 @@ interface WordQuizPopupProps {
     korean: string
     english: string
     romanization: string
-    distractors: [string, string, string]
+    distractors: string[]
   }
   onAnswer: (correct: boolean) => void
   onClose: () => void
