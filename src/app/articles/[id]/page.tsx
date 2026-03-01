@@ -50,8 +50,28 @@ export default async function ArticlePage({ params }: Props) {
       .single(),
   ])
 
+  // Fetch distractor candidates per TOPIK level (30 words per level, server shuffled)
+  const levels = [...new Set((wordRows ?? []).map(r => r.topik_level))]
+  const distractorResults = await Promise.all(
+    levels.map(level =>
+      supabaseAdmin
+        .from('topik_words')
+        .select('english')
+        .eq('topik_level', level)
+        .limit(30)
+    )
+  )
+  const distractorPools: Record<number, string[]> = {}
+  levels.forEach((level, i) => {
+    distractorPools[level] = (distractorResults[i].data ?? []).map(r => r.english)
+  })
+
   const masteryMap = new Map((masteryRows ?? []).map(r => [r.word_id, r.mastery]))
-  const wordDetails = new Map((wordRows ?? []).map(r => [r.id, r]))
+  const wordDetails = new Map((wordRows ?? []).map(r => {
+    const pool = (distractorPools[r.topik_level] ?? []).filter(e => e !== r.english)
+    const distractors = [...pool].sort(() => Math.random() - 0.5).slice(0, 3)
+    return [r.id, { ...r, distractors }]
+  }))
   const userTopikLevel = settings?.topik_level ?? 2
 
   return (

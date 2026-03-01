@@ -15,12 +15,16 @@ export async function POST(
 
   const { data: article } = await supabaseAdmin
     .from('articles')
-    .select('word_quiz_score, user_id')
+    .select('word_quiz_score, user_id, status')
     .eq('id', id)
     .single()
 
   if (!article || article.user_id !== session.user.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  if (article.status === 'completed') {
+    return NextResponse.json({ error: 'Already completed' }, { status: 409 })
   }
 
   const totalScore = calculateTotalScore(article.word_quiz_score, comprehensionScore)

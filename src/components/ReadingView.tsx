@@ -101,7 +101,7 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
             korean: activeWord.korean,
             english: activeWord.english,
             romanization: activeWord.romanization,
-            distractors: ['option 2', 'option 3', 'option 4'],
+            distractors: activeWord.distractors,
           }}
           onAnswer={handleQuizAnswer}
           onClose={() => setActiveWordId(null)}

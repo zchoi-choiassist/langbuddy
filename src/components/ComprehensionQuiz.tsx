@@ -34,15 +34,12 @@ export function ComprehensionQuiz({
       0
     )
 
-    const res = await fetch(`/api/articles/${articleId}/complete`, {
+    await fetch(`/api/articles/${articleId}/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comprehensionScore, answeredQuestions }),
     })
-    const data = await res.json()
-    router.push(
-      `/articles/${articleId}/summary?total=${data.totalScore}&word=${data.wordQuizScore}&comp=${data.comprehensionScore}`
-    )
+    router.push(`/articles/${articleId}/summary`)
   }
 
   if (submitting) {

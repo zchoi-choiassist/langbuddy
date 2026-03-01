@@ -39,6 +39,7 @@ export interface TopikWord {
   english: string
   romanization: string
   topik_level: TopikLevel
+  distractors: string[]
 }
 
 export interface UserWordMastery {
