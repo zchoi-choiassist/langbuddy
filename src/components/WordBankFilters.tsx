@@ -165,7 +165,7 @@ function WordDetailModal({ word, onClose }: { word: Word; onClose: () => void })
           onClick={onClose}
           className="w-full rounded-button bg-accent-celadon px-4 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#3E8A7B]"
         >
-          Continue reading
+          Done
         </button>
       </div>
     </div>
