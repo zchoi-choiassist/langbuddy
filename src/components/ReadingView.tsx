@@ -46,16 +46,23 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
 
   async function handleQuizAnswer(correct: boolean) {
     if (activeWordId === null) return
-    answeredWords.add(activeWordId)
-    setActiveWordId(null)
+    // Don't close yet — let the popup show feedback first
+    const wordId = activeWordId
     const res = await fetch('/api/words/quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ articleId: article.id, wordId: activeWordId, correct }),
+      body: JSON.stringify({ articleId: article.id, wordId, correct }),
     })
     if (res.ok) {
       setWordQuizScore(s => s + (correct ? 1 : -1))
     }
+  }
+
+  function handleQuizClose() {
+    if (activeWordId !== null) {
+      answeredWords.add(activeWordId)
+    }
+    setActiveWordId(null)
   }
 
   const sourceLine = `${getSourceLabel(article.source_url)} · ${new Date(article.created_at).toLocaleDateString('ko-KR')}`
@@ -160,7 +167,7 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
             distractors: activeWord.distractors,
           }}
           onAnswer={handleQuizAnswer}
-          onClose={() => setActiveWordId(null)}
+          onClose={handleQuizClose}
         />
       )}
 
