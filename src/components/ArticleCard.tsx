@@ -1,19 +1,22 @@
 import Link from 'next/link'
 
+export interface ArticleCardArticle {
+  id: string
+  title: string
+  source_url: string
+  original_english: string
+  status: 'unread' | 'reading' | 'completed'
+  created_at: string
+  total_score: number
+  topik_level_at_time: number
+  word_quiz_score: number
+  comprehension_score: number
+}
+
 interface ArticleCardProps {
-  article: {
-    id: string
-    title: string
-    source_url: string
-    original_english: string
-    status: 'unread' | 'reading' | 'completed'
-    created_at: string
-    total_score: number
-    topik_level_at_time: number
-    word_quiz_score: number
-    comprehension_score: number
-  }
+  article: ArticleCardArticle
   index?: number
+  asDiv?: boolean
 }
 
 function getSourceLabel(url: string): string {
@@ -29,31 +32,30 @@ function getSourceLabel(url: string): string {
   }
 }
 
-const STATUS_STYLES: Record<ArticleCardProps['article']['status'], string> = {
+const STATUS_STYLES: Record<ArticleCardArticle['status'], string> = {
   unread: 'bg-accent-celadon-light text-accent-celadon',
   reading: 'bg-[#FEF3C7] text-[#92400E]',
   completed: 'bg-bg-subtle text-text-secondary',
 }
 
-const STATUS_LABELS: Record<ArticleCardProps['article']['status'], string> = {
+const STATUS_LABELS: Record<ArticleCardArticle['status'], string> = {
   unread: 'New',
   reading: 'In Progress',
   completed: 'Complete',
 }
 
-export function ArticleCard({ article, index = 0 }: ArticleCardProps) {
+export function ArticleCard({ article, index = 0, asDiv = false }: ArticleCardProps) {
   const excerpt = article.original_english.slice(0, 130).trim() + '…'
   const wordCount = article.original_english.trim().split(/\s+/).filter(Boolean).length
   const readTime = Math.max(1, Math.round(wordCount / 200))
   const sourceLabel = getSourceLabel(article.source_url)
   const href = article.status === 'completed' ? `/articles/${article.id}/summary` : `/articles/${article.id}`
 
-  return (
-    <Link
-      href={href}
-      className="block cursor-pointer rounded-card bg-bg-surface px-5 py-[18px] shadow-card transition-all duration-200 [transition-timing-function:var(--ease-out)] hover:-translate-y-0.5 hover:shadow-card-hover animate-cardIn"
-      style={{ animationDelay: `${index * 60}ms` }}
-    >
+  const cardClassName = "block cursor-pointer rounded-card bg-bg-surface px-5 py-[18px] shadow-card transition-all duration-200 [transition-timing-function:var(--ease-out)] hover:-translate-y-0.5 hover:shadow-card-hover animate-cardIn"
+  const cardStyle = { animationDelay: `${index * 60}ms` }
+
+  const content = (
+    <>
       <span className={`mb-2 inline-block rounded-pill px-2.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLES[article.status]}`}>
         {STATUS_LABELS[article.status]}
       </span>
@@ -82,6 +84,20 @@ export function ArticleCard({ article, index = 0 }: ArticleCardProps) {
           </span>
         )}
       </div>
+    </>
+  )
+
+  if (asDiv) {
+    return (
+      <div className={cardClassName} style={cardStyle}>
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <Link href={href} className={cardClassName} style={cardStyle}>
+      {content}
     </Link>
   )
 }

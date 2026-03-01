@@ -137,41 +137,34 @@ Rules:
 ReadingView has three mutually exclusive popup modes, managed by `activeWordId` (number | null), `answeredWords` (Set<number>), and `lookupWord` (string | null):
 
 1. **WordQuizPopup** — first tap on a highlighted word. Shows 4-choice quiz, calls `POST /api/words/quiz`, updates score.
-2. **WordDefinitionCard** — re-tap on an already-answered highlighted word. Shows Korean/romanization/English definition only, no quiz, no API call.
+2. **WordDefinitionCard** — re-tap on an already-answered highlighted word. Shows definition only, no quiz, no API call.
 3. **WordLookupCard** — tap on an unhighlighted (plain text) word. Calls `POST /api/words/lookup` (Claude Haiku) for definition, offers "Add to Word Bank" CTA via `POST /api/words/custom`.
 
-Only one popup is open at a time. Opening one closes the other (`handleWordTap` clears `lookupWord`, `handleTextWordTap` clears `activeWordId`).
+Only one popup is open at a time.
 
 ### SegmentRenderer text word tapping
 
-`SegmentRenderer` accepts an optional `onTextWordTap?: (korean: string) => void` prop. When provided, `type: 'text'` segments are split into individual tokens — Korean words become tappable `<button>` elements with subtle `active:bg-bg-subtle` feedback (no underlines). When omitted, behavior is identical to before (plain `<span>`). The split uses Unicode Hangul ranges (`\uAC00-\uD7AF`, `\u1100-\u11FF`, `\u3130-\u318F`) to detect Korean characters.
+`SegmentRenderer` accepts an optional `onTextWordTap?: (korean: string) => void` prop. When provided, `type: 'text'` segments are split into tappable Korean word buttons (no underlines, subtle active state). Uses Unicode Hangul ranges for detection.
 
 ### Home page ArticleList component
 
-The home page delegates article rendering to `ArticleList` (client component, `src/components/ArticleList.tsx`), which combines two concerns:
+`ArticleList` (`src/components/ArticleList.tsx`) is a client component combining:
+1. **Polling** — polls `GET /api/articles` every 5s when placeholder articles exist.
+2. **Swipe-to-delete** — left-swipe reveals vermillion delete zone, confirmation modal, `DELETE /api/articles/[id]`.
 
-1. **Polling** — detects placeholder articles (`title === 'Adapting article...'`) and polls `GET /api/articles` every 5 seconds until all placeholders resolve.
-2. **Swipe-to-delete** — wraps each card in `SwipeableArticleCard` (touch-based left-swipe reveals vermillion delete zone). Full swipe triggers `DeleteConfirmModal` bottom-sheet. Confirmed deletes call `DELETE /api/articles/[id]`, animate card collapse, then `router.refresh()`.
-
-The server component (`page.tsx`) passes `initialArticles` as a prop. `ArticleListPoller.tsx` exists but is dead code — its logic was merged into `ArticleList`.
+Server component passes `initialArticles` prop. `ArticleListPoller.tsx` is dead code (merged into ArticleList).
 
 ### PullToRefresh
 
-`PullToRefresh` (`src/components/PullToRefresh.tsx`) is a client component wrapping all pages via `src/app/layout.tsx`. Uses touch events with a 60px threshold and 0.45x dampening. Triggers `router.refresh()` on pull. Shows a celadon SVG arc indicator that fills proportionally then spins during refresh.
+`PullToRefresh` wraps all pages via `src/app/layout.tsx`. Touch-based, 60px threshold, celadon spinner, calls `router.refresh()`.
 
 ### Claude adaptation robustness
 
-`adaptArticle` in `src/lib/claude.ts` uses three safeguards against invalid JSON responses:
-
-1. **Assistant prefill** — sends `{ role: 'assistant', content: '{' }` to force Claude to continue from an opening brace.
-2. **Robust parsing** — strips UTF-8 BOM, trims whitespace, removes markdown code fences before `JSON.parse`.
-3. **Retry** — 1 retry on JSON parse failure (`MAX_RETRIES = 1`).
-
-`max_tokens` is 8192 (was 4096) because lower TOPIK levels produce more text segments.
+`adaptArticle` uses: (1) assistant prefill `{` to force JSON, (2) robust parsing (BOM, fences, whitespace), (3) 1 retry on parse failure. `max_tokens` is 8192.
 
 ### Custom words table
 
-`user_custom_words` (Supabase) stores user-added words from the lookup card. Schema: `id` (uuid), `user_id`, `korean`, `english`, `romanization`, `created_at`. Unique constraint on `(user_id, korean)`. Migration: `supabase/migrations/004_user_custom_words.sql`. Custom words are NOT yet displayed in the Word Bank page — that requires unioning with TOPIK words in the paginated API.
+`user_custom_words` (Supabase) stores user-added words. Migration: `supabase/migrations/004_user_custom_words.sql`. NOT yet displayed in Word Bank page.
 
 ### Reference documents
 
@@ -212,35 +205,24 @@ The production app uses Tailwind semantic classes mapped to CSS variables (e.g.,
 | Body/UI text | Pretendard Variable | Korean body text, buttons, labels, metadata |
 | Monospace accents | JetBrains Mono (400,600) | TOPIK tags, scores, mastery percentages |
 
-Fonts are loaded via Google Fonts `<link>` in `index.html` (prototype) and `src/app/layout.tsx` (production).
-
 ### Color Palette (CSS custom properties in index.css / globals.css)
 
 | Token | Value | Inspiration |
 |---|---|---|
 | `--bg-base` | `#F8F5F0` | Warm hanji (한지) paper |
 | `--bg-surface` | `#FFFFFF` | Card surfaces |
-| `--bg-subtle` | `#F0EDE8` | Muted backgrounds, score cards |
-| `--accent-celadon` | `#4A9E8E` | 청자 celadon — primary action, correct, success |
-| `--accent-celadon-light` | `#E8F5F2` | Celadon tint for hover/feedback backgrounds |
-| `--accent-vermillion` | `#D94F3B` | 주홍 traditional red — errors, wrong answers |
-| `--accent-vermillion-light` | `#FDE8E4` | Vermillion tint for error backgrounds |
+| `--bg-subtle` | `#F0EDE8` | Muted backgrounds |
+| `--accent-celadon` | `#4A9E8E` | 청자 celadon — primary action, correct |
+| `--accent-vermillion` | `#D94F3B` | 주홍 traditional red — errors, wrong |
 | `--border-light` | `#E7E5E0` | Card borders, dividers |
 
 ### Component Patterns
 
-- Bottom-sheet modals: `fixed inset-0 bg-black/40 flex items-end justify-center z-50` with `slideUp` animation
-- Modal handle: 36px × 4px centered bar in `--border-light`
-- Cards: `shadow-card` (warm subtle shadow), `rounded-[20px]`, hover `translateY(-2px)` + `shadow-card-hover`
-- Buttons: `rounded-[16px]`, celadon primary, 15px font-semibold
-- Pills: `rounded-full`, 1.5px border, 13px
-- Staggered reveals: `cardIn` animation with `animation-delay: index * 60ms` on card lists
-- Vocab underlines: 2px solid celadon (new vocab), 2px solid `#E2A563` (word bank)
-- Decorative hangul: Large Noto Serif KR (72-80px, weight 300, opacity 0.5) positioned behind screen headers
-
-### Key Animations (defined in index.css / globals.css)
-
-`cardIn`, `fadeUp`, `slideUp`, `fadeIn`, `popIn`, `popCorrect`, `shake`
+- Bottom-sheet modals: `bg-black/40`, `slideUp` animation, 36px handle bar
+- Cards: warm `shadow-card`, `rounded-[20px]`, hover lift
+- Vocab underlines: 2px solid celadon (new), 2px solid `#E2A563` (word bank)
+- Decorative hangul: Large Noto Serif KR behind screen headers
+- Staggered card reveals: `cardIn` with `animation-delay: index * 60ms`
 
 ### Design Refactor Tickets
 
@@ -249,12 +231,12 @@ Full ticket breakdown: `work/design-refactor/tickets.json` (38 tickets, 3 phases
 ## Coding Conventions
 
 - Tailwind CSS for all styling (v3, not v4 — different config format)
-- CSS custom properties for design tokens (colors, fonts, radii, shadows) — defined in `:root` in `index.css` (prototype) / `globals.css` (production)
+- CSS custom properties for design tokens — defined in `:root` in `index.css` (prototype) / `globals.css` (production)
 - Mobile-first layout: `max-w-md mx-auto` wrapper on every screen
-- Bottom-sheet modals: `fixed inset-0 bg-black/40 flex items-end justify-center z-50` (note: `/40` not `/50`)
+- Bottom-sheet modals: `fixed inset-0 bg-black/40 flex items-end justify-center z-50`
 - Rounded cards: `rounded-[20px]` for cards, `rounded-[28px]` for modals, `rounded-[16px]` for buttons
-- Color system: celadon primary actions/correct, vermillion errors/wrong, warm bg-base page backgrounds, white card surfaces
-- Typography: Instrument Serif for English display, Noto Serif KR for Korean headings, Pretendard for body/UI, JetBrains Mono for data
+- Color system: celadon primary/correct, vermillion errors/wrong, warm bg-base backgrounds, white surfaces
+- Typography: Instrument Serif display, Noto Serif KR Korean headings, Pretendard body, JetBrains Mono data
 
 ## Development Process
 
@@ -277,22 +259,3 @@ All coding work MUST follow this process in order:
 8. **Commit and push** — Commit the changes and push to the `main` branch.
 
 9. **Update claude.md** — Update Claude.md with your learnings and update any outdated knowledge
-
-## Front-End Aesthetics
-You tend to converge toward generic, "on distribution" outputs. In frontend design, this creates what users call the "AI slop" aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight. Focus on:
-
-Typography: Choose fonts that are beautiful, unique, and interesting. Avoid generic fonts like Arial and Inter; opt instead for distinctive choices that elevate the frontend's aesthetics.
-
-Color & Theme: Commit to a cohesive aesthetic. Use CSS variables for consistency. Dominant colors with sharp accents outperform timid, evenly-distributed palettes. Draw from IDE themes and cultural aesthetics for inspiration.
-
-Motion: Use animations for effects and micro-interactions. Prioritize CSS-only solutions for HTML. Use Motion library for React when available. Focus on high-impact moments: one well-orchestrated page load with staggered reveals (animation-delay) creates more delight than scattered micro-interactions.
-
-Backgrounds: Create atmosphere and depth rather than defaulting to solid colors. Layer CSS gradients, use geometric patterns, or add contextual effects that match the overall aesthetic.
-
-Avoid generic AI-generated aesthetics:
-- Overused font families (Inter, Roboto, Arial, system fonts)
-- Clichéd color schemes (particularly purple gradients on white backgrounds)
-- Predictable layouts and component patterns
-- Cookie-cutter design that lacks context-specific character
-
-Interpret creatively and make unexpected choices that feel genuinely designed for the context. Vary between light and dark themes, different fonts, different aesthetics. You still tend to converge on common choices (Space Grotesk, for example) across generations. Avoid this: it is critical that you think outside the box!

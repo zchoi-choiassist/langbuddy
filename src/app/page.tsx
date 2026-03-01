@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { ArticleCard } from '@/components/ArticleCard'
+import { ArticleList } from '@/components/ArticleList'
 import { TopikSelector } from '@/components/TopikSelector'
 import { AddArticleFab } from '@/components/AddArticleFab'
 import Link from 'next/link'
@@ -23,10 +23,7 @@ export default async function HomePage() {
   ])
 
   const allArticles = articles ?? []
-  const newArticles = allArticles.filter(article => article.status === 'unread')
-  const inProgressArticles = allArticles.filter(article => article.status === 'reading')
-  const completedArticles = allArticles.filter(article => article.status === 'completed')
-  const waitingCount = newArticles.length + inProgressArticles.length
+  const waitingCount = allArticles.filter(a => a.status !== 'completed').length
 
   return (
     <main className="max-w-md mx-auto min-h-screen bg-bg-base">
@@ -54,47 +51,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {allArticles.length > 0 ? (
-        <div className="space-y-2 pb-8">
-          <section>
-            <h2 className="px-4 pt-1 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
-              New
-            </h2>
-            <div className="px-4 space-y-3">
-              {newArticles.map((article, index) => (
-                <ArticleCard key={article.id} article={article} index={index} />
-              ))}
-            </div>
-          </section>
-          <section>
-            <h2 className="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
-              In Progress
-            </h2>
-            <div className="px-4 space-y-3">
-              {inProgressArticles.map((article, index) => (
-                <ArticleCard key={article.id} article={article} index={index} />
-              ))}
-            </div>
-          </section>
-          <section>
-            <h2 className="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
-              Completed
-            </h2>
-            <div className="px-4 space-y-3">
-              {completedArticles.map((article, index) => (
-                <ArticleCard key={article.id} article={article} index={index} />
-              ))}
-            </div>
-          </section>
-        </div>
-      ) : (
-        <div className="px-4 py-20 text-center">
-          <p className="mb-2 text-text-secondary">Your reading queue is empty.</p>
-          <p className="text-sm text-text-tertiary">
-            Share any article or Reddit link from your browser to get started.
-          </p>
-        </div>
-      )}
+      <ArticleList initialArticles={allArticles} />
       <AddArticleFab />
     </main>
   )

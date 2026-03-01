@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SegmentRenderer } from './SegmentRenderer'
 import { WordQuizPopup } from './WordQuizPopup'
+import { WordDefinitionCard } from './WordDefinitionCard'
+import { WordLookupCard } from './WordLookupCard'
 import type { Article, TopikWord } from '@/lib/types'
 
 interface ReadingViewProps {
@@ -26,12 +28,25 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
   const router = useRouter()
   const [showKorean, setShowKorean] = useState(true)
   const [activeWordId, setActiveWordId] = useState<number | null>(null)
+  const [lookupWord, setLookupWord] = useState<string | null>(null)
   const [wordQuizScore, setWordQuizScore] = useState(article.word_quiz_score)
+  const [answeredWords] = useState(() => new Set<number>())
 
   const activeWord = activeWordId !== null ? wordDetails.get(activeWordId) : null
 
+  function handleWordTap(wordId: number) {
+    setLookupWord(null) // Close any open lookup card
+    setActiveWordId(wordId)
+  }
+
+  function handleTextWordTap(korean: string) {
+    setActiveWordId(null) // Close any open quiz/definition popup
+    setLookupWord(korean)
+  }
+
   async function handleQuizAnswer(correct: boolean) {
     if (activeWordId === null) return
+    answeredWords.add(activeWordId)
     setActiveWordId(null)
     const res = await fetch('/api/words/quiz', {
       method: 'POST',
@@ -96,7 +111,8 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
                 segments={article.adapted_korean}
                 masteryMap={masteryMap}
                 userTopikLevel={userTopikLevel}
-                onWordTap={setActiveWordId}
+                onWordTap={handleWordTap}
+                onTextWordTap={handleTextWordTap}
               />
               <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 border-t border-border-subtle pt-5 text-xs text-text-tertiary">
                 <span className="flex items-center gap-1.5">
@@ -134,7 +150,7 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
         </div>
       </div>
 
-      {activeWord && (
+      {activeWord && activeWordId !== null && !answeredWords.has(activeWordId) && (
         <WordQuizPopup
           word={{
             wordId: activeWord.id,
@@ -145,6 +161,24 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
           }}
           onAnswer={handleQuizAnswer}
           onClose={() => setActiveWordId(null)}
+        />
+      )}
+
+      {activeWord && activeWordId !== null && answeredWords.has(activeWordId) && (
+        <WordDefinitionCard
+          word={{
+            korean: activeWord.korean,
+            english: activeWord.english,
+            romanization: activeWord.romanization,
+          }}
+          onClose={() => setActiveWordId(null)}
+        />
+      )}
+
+      {lookupWord && (
+        <WordLookupCard
+          korean={lookupWord}
+          onClose={() => setLookupWord(null)}
         />
       )}
     </div>

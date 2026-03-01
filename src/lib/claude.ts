@@ -78,9 +78,17 @@ Adaptation rules:
 }
 
 export function parseAdaptationResponse(text: string): AdaptationResponse {
+  // Strip BOM, whitespace, and markdown code fences
+  let cleaned = text
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim()
+
   let parsed: AdaptationResponse
   try {
-    parsed = JSON.parse(text)
+    parsed = JSON.parse(cleaned)
   } catch {
     throw new Error('Claude returned invalid JSON')
   }
@@ -96,32 +104,53 @@ export function parseAdaptationResponse(text: string): AdaptationResponse {
   return parsed
 }
 
+const MAX_RETRIES = 1
+
 export async function adaptArticle(
   title: string,
   content: string,
   topikLevel: TopikLevel
 ): Promise<AdaptationResponse> {
-  const message = await getClient().messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    system: [
-      {
-        type: 'text' as const,
-        text: SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' as const },
-      },
-    ],
-    messages: [
-      {
-        role: 'user',
-        content: `Title: ${title}\n\n${buildUserMessage(content, topikLevel)}`,
-      },
-    ],
-  })
+  let lastError: Error | null = null
 
-  const block = message.content[0]
-  if (!block || block.type !== 'text') {
-    throw new Error(`Unexpected Claude response content type: ${block?.type}`)
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const message = await getClient().messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      system: [
+        {
+          type: 'text' as const,
+          text: SYSTEM_PROMPT,
+          cache_control: { type: 'ephemeral' as const },
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: `Title: ${title}\n\n${buildUserMessage(content, topikLevel)}`,
+        },
+        {
+          role: 'assistant',
+          content: '{',
+        },
+      ],
+    })
+
+    const block = message.content[0]
+    if (!block || block.type !== 'text') {
+      throw new Error(`Unexpected Claude response content type: ${block?.type}`)
+    }
+
+    // Prepend the '{' prefill that Claude continued from
+    const fullJson = '{' + block.text
+
+    try {
+      return parseAdaptationResponse(fullJson)
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      if (attempt < MAX_RETRIES) continue
+    }
   }
-  return parseAdaptationResponse(block.text)
+
+  throw lastError!
 }

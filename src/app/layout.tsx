@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, JetBrains_Mono, Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import "./globals.css";
 
 const instrumentSerif = Instrument_Serif({
@@ -52,7 +53,7 @@ export default function RootLayout({
       <body
         className={`${instrumentSerif.variable} ${notoSerifKr.variable} ${notoSansKr.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        {children}
+        <PullToRefresh>{children}</PullToRefresh>
       </body>
     </html>
   );

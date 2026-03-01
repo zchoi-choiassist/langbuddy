@@ -113,4 +113,89 @@ describe('SegmentRenderer', () => {
     )
     expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'gray')
   })
+
+  describe('text word tapping', () => {
+    it('splits text segments into tappable Korean words when onTextWordTap is provided', () => {
+      const textSegments: Segment[] = [
+        { type: 'text', text: '한국의 경제는' },
+      ]
+      render(
+        <SegmentRenderer
+          segments={textSegments}
+          masteryMap={new Map()}
+          userTopikLevel={2}
+          onWordTap={vi.fn()}
+          onTextWordTap={vi.fn()}
+        />
+      )
+      // Each Korean word should be a separate tappable button
+      expect(screen.getByRole('button', { name: '한국의' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '경제는' })).toBeInTheDocument()
+    })
+
+    it('calls onTextWordTap with the Korean word when tapped', () => {
+      const onTextWordTap = vi.fn()
+      const textSegments: Segment[] = [
+        { type: 'text', text: '한국의 경제는' },
+      ]
+      render(
+        <SegmentRenderer
+          segments={textSegments}
+          masteryMap={new Map()}
+          userTopikLevel={2}
+          onWordTap={vi.fn()}
+          onTextWordTap={onTextWordTap}
+        />
+      )
+      fireEvent.click(screen.getByRole('button', { name: '한국의' }))
+      expect(onTextWordTap).toHaveBeenCalledWith('한국의')
+    })
+
+    it('does not make punctuation-only tokens tappable', () => {
+      const textSegments: Segment[] = [
+        { type: 'text', text: '... !' },
+      ]
+      render(
+        <SegmentRenderer
+          segments={textSegments}
+          masteryMap={new Map()}
+          userTopikLevel={2}
+          onWordTap={vi.fn()}
+          onTextWordTap={vi.fn()}
+        />
+      )
+      expect(screen.queryAllByRole('button')).toHaveLength(0)
+    })
+
+    it('still renders text as plain span when onTextWordTap is not provided', () => {
+      const textSegments: Segment[] = [
+        { type: 'text', text: '한국의 경제는' },
+      ]
+      render(
+        <SegmentRenderer
+          segments={textSegments}
+          masteryMap={new Map()}
+          userTopikLevel={2}
+          onWordTap={vi.fn()}
+        />
+      )
+      // No buttons for text segments
+      expect(screen.queryAllByRole('button')).toHaveLength(0)
+      expect(screen.getByText('한국의 경제는')).toBeInTheDocument()
+    })
+
+    it('still renders word segments as colored buttons when onTextWordTap is provided', () => {
+      render(
+        <SegmentRenderer
+          segments={segments}
+          masteryMap={new Map()}
+          userTopikLevel={2}
+          onWordTap={vi.fn()}
+          onTextWordTap={vi.fn()}
+        />
+      )
+      const wordBtn = screen.getByRole('button', { name: '경제' })
+      expect(wordBtn).toHaveAttribute('data-color', 'gray')
+    })
+  })
 })

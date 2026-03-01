@@ -53,6 +53,16 @@ vi.mock('@/components/ArticleCard', () => ({
   ArticleCard: () => <div data-testid="article-card" />,
 }))
 
+vi.mock('@/components/ArticleList', () => ({
+  ArticleList: ({ initialArticles }: { initialArticles: unknown[] }) => (
+    <div data-testid="article-list">
+      {initialArticles.map((_, i) => (
+        <div key={i} data-testid="article-card" />
+      ))}
+    </div>
+  ),
+}))
+
 vi.mock('@/components/AddArticleFab', () => ({
   AddArticleFab: () => <div data-testid="add-article-fab" />,
 }))
