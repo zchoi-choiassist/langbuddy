@@ -100,12 +100,12 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
               />
               <div className="mt-7 flex gap-5 border-t border-border-subtle pt-5 text-xs text-text-tertiary">
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-0.5 w-4 rounded-sm bg-accent-celadon" />
-                  New vocab
+                  <span className="inline-block h-0.5 w-4 rounded-sm bg-border-light" />
+                  Unseen (mastery 0)
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-0.5 w-4 rounded-sm bg-[#E2A563]" />
-                  Word bank
+                  <span className="inline-block h-0.5 w-4 rounded-sm bg-accent-celadon" />
+                  Encountered (mastery {`>`} 0)
                 </span>
               </div>
             </>

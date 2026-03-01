@@ -1,21 +1,19 @@
-import { MASTERY_MIN, MASTERY_MAX, MASTERY_KNOWN_THRESHOLD, TopikLevel } from './constants'
+import { MASTERY_MIN, MASTERY_MAX, TopikLevel } from './constants'
 
 export function updateMastery(current: number, correct: boolean): number {
   const next = correct ? current + 1 : current - 1
   return Math.max(MASTERY_MIN, Math.min(MASTERY_MAX, next))
 }
 
-export type SegmentColor = 'blue' | 'orange' | 'gray'
+export type SegmentColor = 'blue' | 'gray'
 
 // Determines highlight color for a word segment:
-// - orange: word is above the user's current TOPIK level (challenge)
-// - blue:   word is at or below user's level AND mastery is low (needs practice)
-// - gray:   word is at or below user's level AND mastery is high (known)
+// - gray: mastery is 0 (unseen)
+// - blue: mastery is above 0 (encountered)
 export function segmentColor(
-  wordTopikLevel: TopikLevel,
-  userTopikLevel: TopikLevel,
+  _wordTopikLevel: TopikLevel,
+  _userTopikLevel: TopikLevel,
   mastery: number
 ): SegmentColor {
-  if (wordTopikLevel > userTopikLevel) return 'orange'
-  return mastery >= MASTERY_KNOWN_THRESHOLD ? 'gray' : 'blue'
+  return mastery > 0 ? 'blue' : 'gray'
 }

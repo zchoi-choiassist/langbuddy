@@ -20,16 +20,14 @@ describe('updateMastery', () => {
 })
 
 describe('segmentColor', () => {
-  it('returns orange for words above user level', () => {
-    expect(segmentColor(3, 2, 50)).toBe('orange')
+  it('returns gray for unseen words', () => {
+    expect(segmentColor(3, 2, 0)).toBe('gray')
   })
-  it('returns blue for same-level low mastery', () => {
-    expect(segmentColor(2, 2, 60)).toBe('blue')
+  it('returns blue for encountered words', () => {
+    expect(segmentColor(2, 2, 1)).toBe('blue')
   })
-  it('returns gray for same-level high mastery', () => {
-    expect(segmentColor(2, 2, 70)).toBe('gray')
-  })
-  it('returns blue for lower-level low mastery', () => {
-    expect(segmentColor(1, 2, 30)).toBe('blue')
+  it('ignores topik level when computing color', () => {
+    expect(segmentColor(1, 6, 0)).toBe('gray')
+    expect(segmentColor(6, 1, 5)).toBe('blue')
   })
 })

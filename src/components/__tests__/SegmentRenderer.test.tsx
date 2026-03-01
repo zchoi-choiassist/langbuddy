@@ -48,17 +48,17 @@ describe('SegmentRenderer', () => {
     expect(onWordTap).toHaveBeenCalledWith(42)
   })
 
-  it('applies orange color for words above user level', () => {
+  it('applies neutral gray color for unseen words regardless of topik level', () => {
     render(
       <SegmentRenderer
         segments={segments}
-        masteryMap={new Map([[42, 50]])}
-        userTopikLevel={1}  // word is level 2, user is level 1 → orange
+        masteryMap={new Map([[42, 0]])}
+        userTopikLevel={1}
         onWordTap={vi.fn()}
       />
     )
     const btn = screen.getByRole('button', { name: '경제' })
-    expect(btn).toHaveAttribute('data-color', 'orange')
+    expect(btn).toHaveAttribute('data-color', 'gray')
   })
 
   it('renders break segment as a div spacer', () => {
@@ -78,28 +78,16 @@ describe('SegmentRenderer', () => {
     expect(container.querySelectorAll('div.h-5').length).toBe(1)
   })
 
-  it('applies blue color for same-level word with low mastery', () => {
+  it('applies blue color when mastery is above 0', () => {
     render(
       <SegmentRenderer
         segments={segments}
-        masteryMap={new Map([[42, 50]])}
+        masteryMap={new Map([[42, 1]])}
         userTopikLevel={2}
         onWordTap={vi.fn()}
       />
     )
     expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'blue')
-  })
-
-  it('applies gray color for same-level word with high mastery', () => {
-    render(
-      <SegmentRenderer
-        segments={segments}
-        masteryMap={new Map([[42, 70]])}
-        userTopikLevel={2}
-        onWordTap={vi.fn()}
-      />
-    )
-    expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'gray')
   })
 
   it('defaults mastery to 0 when wordId is absent from masteryMap', () => {
@@ -111,6 +99,6 @@ describe('SegmentRenderer', () => {
         onWordTap={vi.fn()}
       />
     )
-    expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'blue')
+    expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'gray')
   })
 })
