@@ -53,3 +53,17 @@ export interface UserSettings {
   user_id: string
   topik_level: TopikLevel
 }
+
+export interface ArticleWordMatch {
+  id: number
+  article_id: string
+  user_id: string
+  source: 'topik' | 'custom'
+  topik_word_id: number | null
+  custom_word_id: number | null
+  surface_form: string
+  normalized_form: string
+  base_form: string
+  match_confidence: 'exact' | 'derived'
+  created_at: string
+}
