@@ -3,9 +3,9 @@ import type { Segment } from '@/lib/types'
 import type { TopikLevel } from '@/lib/constants'
 
 const COLOR_CLASSES: Record<string, string> = {
-  orange: 'decoration-orange-400',
-  blue:   'decoration-blue-500',
-  gray:   'decoration-gray-300',
+  orange: 'border-[#E2A563] hover:bg-[#FEF3C7]',
+  blue: 'border-accent-celadon hover:bg-accent-celadon-light',
+  gray: 'border-border-light hover:bg-bg-subtle',
 }
 
 interface SegmentRendererProps {
@@ -22,13 +22,13 @@ export function SegmentRenderer({
   onWordTap,
 }: SegmentRendererProps) {
   return (
-    <div className="text-gray-900 leading-loose text-lg">
+    <div className="break-keep font-body text-[17px] leading-[2] text-text-primary">
       {segments.map((seg, i) => {
         if (seg.type === 'text') {
           return <span key={i}>{seg.text}</span>
         }
         if (seg.type === 'break') {
-          return <div key={i} className="mt-4" />
+          return <div key={i} className="h-5" />
         }
         // type === 'word'
         const mastery = masteryMap.get(seg.wordId) ?? 0
@@ -37,7 +37,8 @@ export function SegmentRenderer({
           <button
             key={i}
             onClick={() => onWordTap(seg.wordId)}
-            className={`underline decoration-2 underline-offset-2 ${COLOR_CLASSES[color]}`}
+            data-color={color}
+            className={`rounded-[2px] border-b-2 pb-px transition-colors duration-150 ${COLOR_CLASSES[color]}`}
           >
             {seg.text}
           </button>

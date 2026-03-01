@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Step = 'processing' | 'reddit-choice' | 'error'
@@ -11,7 +11,7 @@ export function ArticleProcessor({ url }: { url: string }) {
   const [hasLinkedArticle, setHasLinkedArticle] = useState(false)
   const [error, setError] = useState('')
 
-  async function process(redditType?: 'post' | 'article') {
+  const process = useCallback(async (redditType?: 'post' | 'article') => {
     setStep('processing')
     try {
       const res = await fetch('/api/articles/adapt', {
@@ -33,34 +33,39 @@ export function ArticleProcessor({ url }: { url: string }) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
       setStep('error')
     }
-  }
+  }, [router, url])
 
-  useEffect(() => { process() }, [])
+  useEffect(() => {
+    void process()
+  }, [process])
 
   if (step === 'processing') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900" />
-        <p className="text-gray-500 text-sm">Adapting article to Korean…</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base px-8 text-center">
+        <div className="h-14 w-14 animate-spin rounded-full border-4 border-accent-celadon-light border-t-accent-celadon" />
+        <p className="font-korean-serif text-lg font-semibold text-text-primary">기사를 적응하는 중...</p>
+        <p className="text-sm text-text-secondary">Adapting article to your TOPIK level</p>
       </div>
     )
   }
 
   if (step === 'reddit-choice') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-8 max-w-md mx-auto">
-        <h2 className="font-semibold text-lg text-center">What would you like to adapt?</h2>
+      <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 bg-bg-base px-8">
+        <h2 className="text-center font-korean-serif text-2xl font-semibold text-text-primary">
+          What would you like to adapt?
+        </h2>
         {hasLinkedArticle && (
           <button
             onClick={() => process('article')}
-            className="w-full py-3 px-4 bg-black text-white rounded-2xl font-medium"
+            className="w-full rounded-button bg-accent-celadon px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3E8A7B]"
           >
             The linked article
           </button>
         )}
         <button
           onClick={() => process('post')}
-          className="w-full py-3 px-4 border border-gray-300 rounded-2xl font-medium"
+          className="w-full rounded-button border border-border-light bg-bg-surface px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:border-accent-celadon hover:text-accent-celadon"
         >
           This Reddit discussion
         </button>
@@ -69,10 +74,13 @@ export function ArticleProcessor({ url }: { url: string }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-8 text-center">
-      <p className="text-red-500 font-medium">Failed to process article</p>
-      <p className="text-gray-500 text-sm">{error}</p>
-      <button onClick={() => router.push('/')} className="text-blue-500 underline text-sm">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base px-8 text-center">
+      <p className="font-semibold text-accent-vermillion">Failed to process article</p>
+      <p className="text-sm text-text-secondary">{error}</p>
+      <button
+        onClick={() => router.push('/')}
+        className="text-sm font-medium text-accent-celadon underline decoration-border-light underline-offset-4"
+      >
         Go home
       </button>
     </div>

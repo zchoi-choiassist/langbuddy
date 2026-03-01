@@ -18,7 +18,9 @@ describe('WordQuizPopup', () => {
 
   it('shows 4 answer choices', () => {
     render(<WordQuizPopup word={word} onAnswer={vi.fn()} onClose={vi.fn()} />)
-    const choices = screen.getAllByRole('button').filter(b => !b.textContent?.includes('×'))
+    const choices = screen.getAllByRole('button').filter(button =>
+      ['economy', 'society', 'culture', 'education'].includes(button.textContent ?? '')
+    )
     expect(choices).toHaveLength(4)
   })
 
@@ -34,5 +36,11 @@ describe('WordQuizPopup', () => {
     render(<WordQuizPopup word={word} onAnswer={onAnswer} onClose={vi.fn()} />)
     fireEvent.click(screen.getByText('society'))
     expect(onAnswer).toHaveBeenCalledWith(false)
+  })
+
+  it('shows continue action after answering', () => {
+    render(<WordQuizPopup word={word} onAnswer={vi.fn()} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByText('economy'))
+    expect(screen.getByRole('button', { name: 'Continue reading' })).toBeInTheDocument()
   })
 })

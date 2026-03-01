@@ -10,6 +10,9 @@ const article = {
   status: 'unread' as const,
   created_at: new Date().toISOString(),
   total_score: 0,
+  topik_level_at_time: 2,
+  word_quiz_score: 0,
+  comprehension_score: 0,
 }
 
 describe('ArticleCard', () => {
@@ -30,11 +33,21 @@ describe('ArticleCard', () => {
 
   it('shows score for completed articles', () => {
     render(<ArticleCard article={{ ...article, status: 'completed', total_score: 42 }} />)
-    expect(screen.getByText(/42/)).toBeInTheDocument()
+    expect(screen.getByText('+42')).toBeInTheDocument()
   })
 
   it('does not show score for unread articles', () => {
     render(<ArticleCard article={{ ...article, status: 'unread', total_score: 0 }} />)
-    expect(screen.queryByText(/pts/i)).not.toBeInTheDocument()
+    expect(screen.queryByText('+0')).not.toBeInTheDocument()
+  })
+
+  it('renders editorial badge labels', () => {
+    render(<ArticleCard article={{ ...article, status: 'reading' }} />)
+    expect(screen.getByText('In Progress')).toBeInTheDocument()
+  })
+
+  it('renders TOPIK tag metadata', () => {
+    render(<ArticleCard article={article} />)
+    expect(screen.getByText('TOPIK 2')).toBeInTheDocument()
   })
 })

@@ -20,7 +20,7 @@ export function TopikSelector({ initial }: { initial: number }) {
     <select
       value={level}
       onChange={handleChange}
-      className="text-sm border border-gray-200 rounded px-2 py-1"
+      className="rounded-md border border-border-light bg-bg-surface px-2 py-1 text-sm text-text-secondary"
     >
       {TOPIK_LEVELS.map(l => (
         <option key={l} value={l}>TOPIK {l}</option>

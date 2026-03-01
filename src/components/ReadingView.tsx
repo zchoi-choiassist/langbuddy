@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SegmentRenderer } from './SegmentRenderer'
 import { WordQuizPopup } from './WordQuizPopup'
@@ -13,27 +13,22 @@ interface ReadingViewProps {
   userTopikLevel: number
 }
 
+function getSourceLabel(url: string): string {
+  try {
+    const { hostname } = new URL(url)
+    return hostname.replace('www.', '')
+  } catch {
+    return url
+  }
+}
+
 export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }: ReadingViewProps) {
   const router = useRouter()
   const [showKorean, setShowKorean] = useState(true)
-  const [showToggleLabel, setShowToggleLabel] = useState(false)
   const [activeWordId, setActiveWordId] = useState<number | null>(null)
   const [wordQuizScore, setWordQuizScore] = useState(article.word_quiz_score)
-  const lastTapRef = useRef(0)
-  const labelTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const activeWord = activeWordId !== null ? wordDetails.get(activeWordId) : null
-
-  const handleTap = useCallback(() => {
-    const now = Date.now()
-    if (now - lastTapRef.current < 300) {
-      setShowKorean(prev => !prev)
-      setShowToggleLabel(true)
-      clearTimeout(labelTimerRef.current)
-      labelTimerRef.current = setTimeout(() => setShowToggleLabel(false), 1000)
-    }
-    lastTapRef.current = now
-  }, [])
 
   async function handleQuizAnswer(correct: boolean) {
     if (activeWordId === null) return
@@ -48,50 +43,87 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
     }
   }
 
+  const sourceLine = `${getSourceLabel(article.source_url)} · ${new Date(article.created_at).toLocaleDateString('ko-KR')}`
+
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 bg-white z-10">
-        <button onClick={() => router.back()} className="text-blue-600 text-sm font-medium">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-bg-base">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border-subtle bg-bg-base px-5 py-3">
+        <button onClick={() => router.back()} className="text-sm font-medium text-accent-celadon">
           ← Back
         </button>
-        <span className="text-sm text-gray-500">Score: {wordQuizScore}</span>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-[13px] font-semibold text-accent-celadon">
+            {wordQuizScore > 0 ? '+' : ''}
+            {wordQuizScore}
+          </span>
+          <div className="flex items-center gap-0.5 rounded-pill bg-bg-subtle p-1">
+            <button
+              onClick={() => setShowKorean(true)}
+              className={`rounded-pill px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                showKorean
+                  ? 'bg-bg-surface text-text-primary shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
+                  : 'text-text-tertiary'
+              }`}
+            >
+              한
+            </button>
+            <button
+              onClick={() => setShowKorean(false)}
+              className={`rounded-pill px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                showKorean
+                  ? 'text-text-tertiary'
+                  : 'bg-bg-surface text-text-primary shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
+              }`}
+            >
+              EN
+            </button>
+          </div>
+        </div>
       </header>
 
-      <div
-        className="flex-1 px-5 py-6 overflow-y-auto relative select-none"
-        onClick={handleTap}
-      >
-        {showToggleLabel && (
-          <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
-            <span className="bg-black/70 text-white text-lg px-5 py-2 rounded-full">
-              {showKorean ? '한국어' : 'English'}
-            </span>
-          </div>
-        )}
-
-        <h1 className="text-lg font-bold text-gray-900 mb-4 leading-snug">{article.title}</h1>
-
-        {showKorean ? (
-          <SegmentRenderer
-            segments={article.adapted_korean}
-            masteryMap={masteryMap}
-            userTopikLevel={userTopikLevel}
-            onWordTap={setActiveWordId}
-          />
-        ) : (
-          <p className="text-gray-700 leading-relaxed text-base whitespace-pre-wrap">
-            {article.original_english}
+      <div className="relative flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto px-[22px] pb-28 pt-6">
+          <h1 className="mb-1 font-korean-serif text-[22px] font-bold leading-[1.5] text-text-primary">
+            {article.title}
+          </h1>
+          <p className="mb-6 border-b border-border-subtle pb-5 text-xs text-text-tertiary">
+            {sourceLine}
           </p>
-        )}
-      </div>
 
-      <div className="px-5 py-6 border-t border-gray-100">
-        <button
-          onClick={() => router.push(`/articles/${article.id}/comprehension`)}
-          className="w-full py-3 bg-blue-500 text-white rounded-2xl font-semibold text-base"
-        >
-          I&apos;m done reading
-        </button>
+          {showKorean ? (
+            <>
+              <SegmentRenderer
+                segments={article.adapted_korean}
+                masteryMap={masteryMap}
+                userTopikLevel={userTopikLevel}
+                onWordTap={setActiveWordId}
+              />
+              <div className="mt-7 flex gap-5 border-t border-border-subtle pt-5 text-xs text-text-tertiary">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-0.5 w-4 rounded-sm bg-accent-celadon" />
+                  New vocab
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-0.5 w-4 rounded-sm bg-[#E2A563]" />
+                  Word bank
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="whitespace-pre-wrap text-base leading-relaxed text-text-secondary">
+              {article.original_english}
+            </p>
+          )}
+        </div>
+
+        <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(transparent,var(--bg-base)_30%)] px-5 pb-8 pt-4">
+          <button
+            onClick={() => router.push(`/articles/${article.id}/comprehension`)}
+            className="w-full rounded-button bg-accent-celadon px-4 py-4 text-[15px] font-semibold text-white transition-all hover:bg-[#3E8A7B] active:scale-[0.98]"
+          >
+            다 읽었어요 →
+          </button>
+        </div>
       </div>
 
       {activeWord && (

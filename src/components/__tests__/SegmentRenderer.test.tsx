@@ -58,7 +58,7 @@ describe('SegmentRenderer', () => {
       />
     )
     const btn = screen.getByRole('button', { name: '경제' })
-    expect(btn.className).toContain('orange')
+    expect(btn).toHaveAttribute('data-color', 'orange')
   })
 
   it('renders break segment as a div spacer', () => {
@@ -75,7 +75,7 @@ describe('SegmentRenderer', () => {
         onWordTap={vi.fn()}
       />
     )
-    expect(container.querySelectorAll('div.mt-4').length).toBe(1)
+    expect(container.querySelectorAll('div.h-5').length).toBe(1)
   })
 
   it('applies blue color for same-level word with low mastery', () => {
@@ -87,7 +87,7 @@ describe('SegmentRenderer', () => {
         onWordTap={vi.fn()}
       />
     )
-    expect(screen.getByRole('button', { name: '경제' }).className).toContain('blue')
+    expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'blue')
   })
 
   it('applies gray color for same-level word with high mastery', () => {
@@ -99,7 +99,7 @@ describe('SegmentRenderer', () => {
         onWordTap={vi.fn()}
       />
     )
-    expect(screen.getByRole('button', { name: '경제' }).className).toContain('gray')
+    expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'gray')
   })
 
   it('defaults mastery to 0 when wordId is absent from masteryMap', () => {
@@ -111,6 +111,6 @@ describe('SegmentRenderer', () => {
         onWordTap={vi.fn()}
       />
     )
-    expect(screen.getByRole('button', { name: '경제' }).className).toContain('blue')
+    expect(screen.getByRole('button', { name: '경제' })).toHaveAttribute('data-color', 'blue')
   })
 })

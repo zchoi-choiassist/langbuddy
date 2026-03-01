@@ -14,38 +14,55 @@ export default async function SummaryPage({ params }: Props) {
 
   const { data: article } = await supabaseAdmin
     .from('articles')
-    .select('word_quiz_score, comprehension_score, total_score, user_id')
+    .select('title, word_quiz_score, comprehension_score, total_score, user_id')
     .eq('id', id)
     .single()
 
   if (!article || article.user_id !== userId) notFound()
 
-  return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center px-5 text-center">
-      <h1 className="text-3xl font-bold mb-2">Article Complete!</h1>
-      <p className="text-gray-400 mb-10">Here&apos;s how you did</p>
+  const scoreRows = [
+    { label: 'Word Quiz', value: article.word_quiz_score },
+    { label: 'Comprehension', value: article.comprehension_score },
+  ]
 
-      <div className="w-full bg-white rounded-2xl border border-gray-100 p-6 mb-8 space-y-4">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Vocabulary quizzes</span>
-          <span className="font-semibold text-lg">{article.word_quiz_score} pts</span>
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center bg-bg-base px-6 text-center">
+      <div className="mb-5 text-5xl [animation:popIn_0.5s_var(--ease-spring)_0.2s_backwards]">🏆</div>
+      <h1 className="mb-1 font-display text-[28px] text-text-primary [animation:fadeUp_0.5s_var(--ease-out)_0.3s_backwards]">
+        Well done!
+      </h1>
+      <p className="mb-8 line-clamp-2 text-sm text-text-secondary [animation:fadeUp_0.5s_var(--ease-out)_0.4s_backwards]">
+        {article.title}
+      </p>
+
+      <div className="w-full rounded-card bg-bg-subtle p-6 text-left [animation:fadeUp_0.5s_var(--ease-out)_0.5s_backwards]">
+        <div className="mb-1 font-mono text-[40px] font-semibold text-accent-celadon">
+          {article.total_score > 0 ? '+' : ''}
+          {article.total_score}
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Comprehension</span>
-          <span className="font-semibold text-lg">{article.comprehension_score} pts</span>
-        </div>
-        <div className="h-px bg-gray-100" />
-        <div className="flex justify-between items-center">
-          <span className="font-bold">Total score</span>
-          <span className="font-bold text-2xl">{article.total_score} pts</span>
+        <div className="mb-5 text-[13px] text-text-tertiary">Total Score</div>
+        {scoreRows.map(row => (
+          <div key={row.label} className="flex items-center justify-between border-t border-border-light py-2.5 text-sm">
+            <span className="text-text-secondary">{row.label}</span>
+            <span className={`font-mono font-semibold ${row.value >= 0 ? 'text-accent-celadon' : 'text-accent-vermillion'}`}>
+              {row.value > 0 ? '+' : ''}
+              {row.value}
+            </span>
+          </div>
+        ))}
+        <div className="flex items-center justify-between border-t border-border-light py-2.5 text-sm">
+          <span className="text-text-secondary">Mistakes</span>
+          <span className="font-mono font-semibold text-accent-vermillion">
+            -{Math.abs(Math.min(article.word_quiz_score, 0) + Math.min(article.comprehension_score, 0))}
+          </span>
         </div>
       </div>
 
       <Link
         href="/"
-        className="w-full py-3 bg-blue-500 text-white rounded-2xl font-semibold text-center block"
+        className="mt-7 block rounded-button border-[1.5px] border-border-light bg-bg-surface px-12 py-4 text-[15px] font-semibold text-text-primary transition-colors [animation:fadeUp_0.5s_var(--ease-out)_0.6s_backwards] hover:border-accent-celadon hover:text-accent-celadon"
       >
-        Back to reading list
+        ← Back to reading list
       </Link>
     </div>
   )

@@ -8,24 +8,26 @@ export default async function ArchivePage() {
 
   const { data: articles } = await supabaseAdmin
     .from('articles')
-    .select('id, title, source_url, original_english, status, created_at, total_score')
+    .select('id, title, source_url, original_english, status, created_at, total_score, topik_level_at_time, word_quiz_score, comprehension_score')
     .eq('user_id', session!.user.id)
     .eq('status', 'completed')
     .order('completed_at', { ascending: false })
 
   return (
-    <main className="max-w-md mx-auto">
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 sticky top-0 bg-white z-10">
-        <Link href="/" className="text-blue-600 font-medium text-sm">← Back</Link>
-        <h1 className="font-bold text-lg">Archive</h1>
-        <span className="ml-auto text-sm text-gray-400">{articles?.length ?? 0} articles</span>
+    <main className="max-w-md mx-auto min-h-screen bg-bg-base">
+      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border-subtle bg-bg-base px-4 py-3">
+        <Link href="/" className="text-sm font-medium text-accent-celadon">← Back</Link>
+        <h1 className="font-display text-2xl text-text-primary">Archive</h1>
+        <span className="ml-auto text-sm text-text-tertiary">{articles?.length ?? 0} articles</span>
       </header>
 
       {articles && articles.length > 0 ? (
-        articles.map(article => <ArticleCard key={article.id} article={article} />)
+        <div className="space-y-3 px-4 py-4">
+          {articles.map((article, index) => <ArticleCard key={article.id} article={article} index={index} />)}
+        </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20 text-center px-8">
-          <p className="text-gray-500">No completed articles yet.</p>
+        <div className="flex flex-col items-center justify-center px-8 py-20 text-center">
+          <p className="text-text-secondary">No completed articles yet.</p>
         </div>
       )}
     </main>
