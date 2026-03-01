@@ -38,6 +38,30 @@ describe('fetchAndExtract', () => {
     vi.restoreAllMocks()
   })
 
+  it('normalizes percent-encoded URLs before fetching', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(`
+          <html><head><title>Encoded URL Article</title></head>
+          <body><article>
+            <p>This article text is long enough for readability to parse correctly.</p>
+            <p>A second paragraph keeps extraction stable in tests.</p>
+          </article></body></html>
+        `),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const encodedUrl = 'https%3A%2F%2Fwww.cnn.com%2Fworld%2Flive-news%2Fisrael-iran-attack-02-28-26-hnk-intl'
+    await fetchAndExtract(encodedUrl)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://www.cnn.com/world/live-news/israel-iran-attack-02-28-26-hnk-intl',
+      expect.any(Object)
+    )
+  })
+
   it('returns needsRedditChoice signal for Reddit URL without type', async () => {
     const mockPost = {
       title: 'Test Post',

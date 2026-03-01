@@ -16,6 +16,29 @@ export function isRedditUrl(url: string): boolean {
   }
 }
 
+function isHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+export function normalizeArticleUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim().replace(/^["']+|["']+$/g, '')
+  if (isHttpUrl(trimmed)) return trimmed
+
+  try {
+    const decoded = decodeURIComponent(trimmed)
+    if (isHttpUrl(decoded)) return decoded
+  } catch {
+    // Invalid percent encoding: fall through to error.
+  }
+
+  throw new Error('Invalid URL')
+}
+
 export async function extractArticleContent(
   html: string,
   url: string
@@ -34,16 +57,18 @@ export async function fetchAndExtract(
   url: string,
   redditType?: 'post' | 'article'
 ): Promise<ExtractedContent> {
-  if (isRedditUrl(url)) {
-    return fetchRedditContent(url, redditType)
+  const normalizedUrl = normalizeArticleUrl(url)
+
+  if (isRedditUrl(normalizedUrl)) {
+    return fetchRedditContent(normalizedUrl, redditType)
   }
 
-  const res = await fetch(url, {
+  const res = await fetch(normalizedUrl, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LangBuddy/1.0)' },
   })
   if (!res.ok) throw new Error(`Failed to fetch URL: ${res.status}`)
   const html = await res.text()
-  const { title, content } = await extractArticleContent(html, url)
+  const { title, content } = await extractArticleContent(html, normalizedUrl)
   return { title, content, isReddit: false }
 }
 
