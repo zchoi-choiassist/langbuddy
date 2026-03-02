@@ -198,4 +198,55 @@ describe('SegmentRenderer', () => {
       expect(wordBtn).toHaveAttribute('data-color', 'gray')
     })
   })
+
+  describe('media segments', () => {
+    it('renders inline image segments with lazy loading and caption', () => {
+      const withMedia: Segment[] = [
+        { type: 'text', text: '문단 1' },
+        {
+          type: 'media',
+          kind: 'image',
+          src: 'https://images.example.com/one.jpg',
+          alt: 'Inline photo',
+          caption: 'Photo caption',
+        },
+      ]
+
+      render(
+        <SegmentRenderer
+          segments={withMedia}
+          masteryMap={new Map()}
+          userTopikLevel={2}
+        />
+      )
+
+      const image = screen.getByRole('img', { name: 'Inline photo' })
+      expect(image).toHaveAttribute('loading', 'lazy')
+      expect(image).toHaveAttribute('src', 'https://images.example.com/one.jpg')
+      expect(screen.getByText('Photo caption')).toBeInTheDocument()
+    })
+
+    it('shows image placeholder when media fails to load', () => {
+      const withMedia: Segment[] = [
+        {
+          type: 'media',
+          kind: 'image',
+          src: 'https://images.example.com/broken.jpg',
+          alt: null,
+          caption: null,
+        },
+      ]
+
+      render(
+        <SegmentRenderer
+          segments={withMedia}
+          masteryMap={new Map()}
+          userTopikLevel={2}
+        />
+      )
+
+      fireEvent.error(document.querySelector('img') as HTMLImageElement)
+      expect(screen.getByText('Image unavailable')).toBeInTheDocument()
+    })
+  })
 })

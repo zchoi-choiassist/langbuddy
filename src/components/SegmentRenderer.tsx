@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { segmentColor } from '@/lib/mastery'
 import type { Segment } from '@/lib/types'
 import type { TopikLevel } from '@/lib/constants'
@@ -40,7 +41,7 @@ interface SegmentRendererProps {
   segments: Segment[]
   masteryMap: Map<number, number>   // wordId → mastery (0–100)
   userTopikLevel: number
-  onWordTap: (wordId: number) => void
+  onWordTap?: (wordId: number) => void
   onTextWordTap?: (korean: string) => void
 }
 
@@ -51,6 +52,17 @@ export function SegmentRenderer({
   onWordTap,
   onTextWordTap,
 }: SegmentRendererProps) {
+  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set())
+
+  function handleImageError(src: string) {
+    setFailedImages((prev) => {
+      if (prev.has(src)) return prev
+      const next = new Set(prev)
+      next.add(src)
+      return next
+    })
+  }
+
   return (
     <div className="break-keep font-body text-[17px] leading-[2] text-text-primary">
       {segments.map((seg, i) => {
@@ -80,13 +92,40 @@ export function SegmentRenderer({
         if (seg.type === 'break') {
           return <div key={i} className="h-5" />
         }
+        if (seg.type === 'media') {
+          const altText = seg.alt ?? ''
+          const hasError = failedImages.has(seg.src)
+          return (
+            <figure key={i} className="my-5">
+              {hasError ? (
+                <div className="flex h-40 w-full items-center justify-center rounded-lg bg-bg-subtle text-sm text-text-tertiary">
+                  Image unavailable
+                </div>
+              ) : (
+                <img
+                  src={seg.src}
+                  alt={altText}
+                  loading="lazy"
+                  decoding="async"
+                  onError={() => handleImageError(seg.src)}
+                  className="h-40 w-full rounded-lg bg-bg-subtle object-cover"
+                />
+              )}
+              {(seg.caption ?? seg.alt) && (
+                <figcaption className="mt-2 text-xs leading-relaxed text-text-tertiary">
+                  {seg.caption ?? seg.alt}
+                </figcaption>
+              )}
+            </figure>
+          )
+        }
         // type === 'word'
         const mastery = masteryMap.get(seg.wordId) ?? 0
         const color = segmentColor(seg.topikLevel as TopikLevel, userTopikLevel as TopikLevel, mastery)
         return (
           <button
             key={i}
-            onClick={() => onWordTap(seg.wordId)}
+            onClick={() => onWordTap?.(seg.wordId)}
             data-color={color}
             className={`rounded-[2px] border-b-2 pb-px transition-colors duration-150 ${COLOR_CLASSES[color]}`}
           >

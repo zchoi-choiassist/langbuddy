@@ -6,7 +6,7 @@ import { SegmentRenderer } from './SegmentRenderer'
 import { WordQuizPopup } from './WordQuizPopup'
 import { WordDefinitionCard } from './WordDefinitionCard'
 import { WordLookupCard } from './WordLookupCard'
-import type { Article, TopikWord } from '@/lib/types'
+import type { Article, Segment, TopikWord } from '@/lib/types'
 
 interface ReadingViewProps {
   article: Article
@@ -24,6 +24,44 @@ function getSourceLabel(url: string): string {
   }
 }
 
+function buildEnglishSegments(originalEnglish: string, koreanSegments: Segment[]): Segment[] {
+  const paragraphs = originalEnglish
+    .split(/\n{2,}/)
+    .map(text => text.trim())
+    .filter(Boolean)
+
+  const mediaByParagraph = new Map<number, Extract<Segment, { type: 'media' }>[]>()
+  let paragraphIndex = 0
+
+  for (const segment of koreanSegments) {
+    if (segment.type === 'break') {
+      paragraphIndex += 1
+      continue
+    }
+    if (segment.type === 'media') {
+      const bucket = mediaByParagraph.get(paragraphIndex) ?? []
+      bucket.push(segment)
+      mediaByParagraph.set(paragraphIndex, bucket)
+    }
+  }
+
+  const englishSegments: Segment[] = []
+  for (let i = 0; i < paragraphs.length; i += 1) {
+    englishSegments.push({ type: 'text', text: paragraphs[i] })
+    const media = mediaByParagraph.get(i) ?? []
+    englishSegments.push(...media)
+    if (i < paragraphs.length - 1) {
+      englishSegments.push({ type: 'break' })
+    }
+  }
+
+  if (englishSegments.length === 0) {
+    englishSegments.push({ type: 'text', text: originalEnglish })
+  }
+
+  return englishSegments
+}
+
 export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }: ReadingViewProps) {
   const router = useRouter()
   const [showKorean, setShowKorean] = useState(true)
@@ -31,6 +69,7 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
   const [lookupWord, setLookupWord] = useState<string | null>(null)
   const [wordQuizScore, setWordQuizScore] = useState(article.word_quiz_score)
   const [answeredWords] = useState(() => new Set<number>())
+  const englishSegments = buildEnglishSegments(article.original_english, article.adapted_korean)
 
   const activeWord = activeWordId !== null ? wordDetails.get(activeWordId) : null
 
@@ -141,9 +180,11 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
               </div>
             </>
           ) : (
-            <p className="whitespace-pre-wrap text-base leading-relaxed text-text-secondary">
-              {article.original_english}
-            </p>
+            <SegmentRenderer
+              segments={englishSegments}
+              masteryMap={new Map()}
+              userTopikLevel={userTopikLevel}
+            />
           )}
         </div>
 
