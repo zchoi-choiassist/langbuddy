@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { isRedditUrl, extractArticleContent, fetchAndExtract } from '@/lib/extract'
+import { isRedditUrl, extractArticleContent, fetchAndExtract, extractInlineImages } from '@/lib/extract'
 
 describe('isRedditUrl', () => {
   it('detects reddit.com URLs', () => {
@@ -232,5 +232,49 @@ describe('fetchAndExtract', () => {
     expect(result.isReddit).toBe(true)
     expect(result.hasLinkedArticle).toBe(true)
     expect(result.content).toBe('')
+  })
+})
+
+describe('extractInlineImages', () => {
+  it('extracts inline images in DOM order, dedupes, and caps at 5', () => {
+    const html = `
+      <html><body>
+        <p>Paragraph 1<img src="/img/one.jpg" alt="one"></p>
+        <figure>
+          <img src="https://cdn.example.com/two.jpg" alt="two" />
+          <figcaption>Two caption</figcaption>
+        </figure>
+        <p>Paragraph 2<img src="https://cdn.example.com/dup.jpg"></p>
+        <p><img src="https://cdn.example.com/dup.jpg"></p>
+        <p><img src="data:image/png;base64,abcd"></p>
+        <p><img src="https://cdn.example.com/three.jpg"></p>
+        <p><img src="https://cdn.example.com/four.jpg"></p>
+        <p><img src="https://cdn.example.com/five.jpg"></p>
+        <p><img src="https://cdn.example.com/six.jpg"></p>
+      </body></html>
+    `
+
+    const images = extractInlineImages(html, 'https://news.example.com/story')
+
+    expect(images).toHaveLength(5)
+    expect(images[0]).toMatchObject({
+      src: 'https://news.example.com/img/one.jpg',
+      alt: 'one',
+      caption: null,
+      paragraphIndex: 0,
+    })
+    expect(images[1]).toMatchObject({
+      src: 'https://cdn.example.com/two.jpg',
+      alt: 'two',
+      caption: 'Two caption',
+    })
+    expect(images.find(image => image.src.includes('data:image'))).toBeUndefined()
+    expect(images.map(image => image.src)).toEqual([
+      'https://news.example.com/img/one.jpg',
+      'https://cdn.example.com/two.jpg',
+      'https://cdn.example.com/dup.jpg',
+      'https://cdn.example.com/three.jpg',
+      'https://cdn.example.com/four.jpg',
+    ])
   })
 })
