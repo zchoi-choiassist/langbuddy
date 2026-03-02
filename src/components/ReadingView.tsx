@@ -77,7 +77,6 @@ export function ReadingView({
   const [lookupWord, setLookupWord] = useState<string | null>(null)
   const [wordQuizScore, setWordQuizScore] = useState(article.word_quiz_score)
   const [answeredWords] = useState(() => new Set<number>())
-  const englishSegments = buildEnglishSegments(article.original_english, article.adapted_korean)
   const [customWordSet, setCustomWordSet] = useState(() => {
     const normalized = initialCustomWords
       .map(word => canonicalizeKoreanToken(word))
