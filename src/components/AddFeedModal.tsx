@@ -71,7 +71,7 @@ export function AddFeedModal({ onClose }: { onClose: () => void }) {
             value={url}
             onChange={e => { setUrl(e.target.value); setError('') }}
             onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
-            placeholder="e.g. example.substack.com"
+            placeholder="e.g. platformer or platformer.substack.com"
             className="w-full rounded-button border border-border-light px-4 py-3 text-[15px] text-text-primary placeholder:text-text-tertiary focus:border-accent-celadon focus:outline-none focus:ring-1 focus:ring-accent-celadon/30"
           />
           {error && (

@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { parseFeed } from '@/lib/rss'
+import { normalizeFeedInput } from '@/lib/normalize-feed-url'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -29,17 +30,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'url is required' }, { status: 400 })
   }
 
-  let feedUrl = url.trim()
-
-  // Ensure URL has a scheme
-  if (!/^https?:\/\//i.test(feedUrl)) {
-    feedUrl = 'https://' + feedUrl
-  }
-
-  // Normalize Substack URLs: append /feed if no path beyond root
-  if (/^https?:\/\/[^/]+\.substack\.com\/?$/i.test(feedUrl)) {
-    feedUrl = feedUrl.replace(/\/?$/, '/feed')
-  }
+  const feedUrl = normalizeFeedInput(url)
 
   let parsedFeed: Awaited<ReturnType<typeof parseFeed>>
   try {
