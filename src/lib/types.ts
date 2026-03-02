@@ -7,6 +7,15 @@ export type Segment =
   | { type: 'text'; text: string }
   | { type: 'word'; text: string; wordId: number; topikLevel: TopikLevel }
   | { type: 'break' }
+  | {
+      type: 'media'
+      kind: 'image'
+      src: string
+      alt: string | null
+      caption: string | null
+      width?: number
+      height?: number
+    }
 
 export interface ComprehensionQuestion {
   id: string

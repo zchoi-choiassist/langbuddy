@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ArticleWordMatch } from '@/lib/types'
+import type { ArticleWordMatch, Segment } from '@/lib/types'
 
 describe('ArticleWordMatch type shape', () => {
   it('accepts topik match rows', () => {
@@ -18,5 +18,21 @@ describe('ArticleWordMatch type shape', () => {
     }
 
     expect(row.source).toBe('topik')
+  })
+})
+
+describe('Segment type shape', () => {
+  it('accepts media image segments', () => {
+    const mediaSegment: Segment = {
+      type: 'media',
+      kind: 'image',
+      src: 'https://example.com/image.jpg',
+      alt: 'Example image',
+      caption: 'Example caption',
+      width: 1200,
+      height: 675,
+    }
+
+    expect(mediaSegment.type).toBe('media')
   })
 })
