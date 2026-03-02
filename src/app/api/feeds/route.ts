@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { parseFeed } from '@/lib/rss'
 import { normalizeFeedInput } from '@/lib/normalize-feed-url'
+import { pollSingleFeed } from '@/lib/feed-poller'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -55,6 +56,9 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Immediately poll the newly added feed so users see fresh articles without waiting for cron.
+  await pollSingleFeed(data)
 
   return NextResponse.json(data, { status: 201 })
 }

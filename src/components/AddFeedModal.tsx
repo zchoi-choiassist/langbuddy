@@ -48,6 +48,7 @@ export function AddFeedModal({ onClose }: { onClose: () => void }) {
       }
 
       router.refresh()
+      setTimeout(() => router.refresh(), 1500)
       onClose()
     } catch {
       setError('Network error. Please try again.')
