@@ -98,6 +98,7 @@ export function ArticleList({ initialArticles }: ArticleListProps) {
   }, [deleteTarget, router])
 
   const { newArticles, inProgressArticles, completedArticles } = groupArticles(articles)
+  const activeArticles = [...newArticles, ...inProgressArticles]
 
   if (articles.length === 0) {
     return (
@@ -149,8 +150,7 @@ export function ArticleList({ initialArticles }: ArticleListProps) {
   return (
     <>
       <div className="space-y-2 pb-8">
-        {renderSection('New', newArticles, 'pt-1')}
-        {renderSection('In Progress', inProgressArticles, 'pt-4')}
+        {renderSection('New & In Progress', activeArticles, 'pt-1')}
         {renderSection('Completed', completedArticles, 'pt-4')}
       </div>
 
