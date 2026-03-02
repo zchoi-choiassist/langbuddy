@@ -6,6 +6,7 @@ import { SegmentRenderer } from './SegmentRenderer'
 import { WordQuizPopup } from './WordQuizPopup'
 import { WordDefinitionCard } from './WordDefinitionCard'
 import { WordLookupCard } from './WordLookupCard'
+import { canonicalizeKoreanToken } from '@/lib/vocabulary-analyzer'
 import type { Article, Segment, TopikWord } from '@/lib/types'
 
 interface ReadingViewProps {
@@ -13,6 +14,7 @@ interface ReadingViewProps {
   masteryMap: Map<number, number>
   wordDetails: Map<number, TopikWord>
   userTopikLevel: number
+  initialCustomWords: string[]
 }
 
 function getSourceLabel(url: string): string {
@@ -62,13 +64,26 @@ function buildEnglishSegments(originalEnglish: string, koreanSegments: Segment[]
   return englishSegments
 }
 
-export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }: ReadingViewProps) {
+export function ReadingView({
+  article,
+  masteryMap,
+  wordDetails,
+  userTopikLevel,
+  initialCustomWords,
+}: ReadingViewProps) {
   const router = useRouter()
   const [showKorean, setShowKorean] = useState(true)
   const [activeWordId, setActiveWordId] = useState<number | null>(null)
   const [lookupWord, setLookupWord] = useState<string | null>(null)
   const [wordQuizScore, setWordQuizScore] = useState(article.word_quiz_score)
   const [answeredWords] = useState(() => new Set<number>())
+  const englishSegments = buildEnglishSegments(article.original_english, article.adapted_korean)
+  const [customWordSet, setCustomWordSet] = useState(() => {
+    const normalized = initialCustomWords
+      .map(word => canonicalizeKoreanToken(word))
+      .filter(word => word.length > 0)
+    return new Set(normalized)
+  })
   const englishSegments = buildEnglishSegments(article.original_english, article.adapted_korean)
 
   const activeWord = activeWordId !== null ? wordDetails.get(activeWordId) : null
@@ -81,6 +96,17 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
   function handleTextWordTap(korean: string) {
     setActiveWordId(null) // Close any open quiz/definition popup
     setLookupWord(korean)
+  }
+
+  function handleWordSaved(korean: string) {
+    const normalized = canonicalizeKoreanToken(korean)
+    if (!normalized) return
+    setCustomWordSet(prev => {
+      if (prev.has(normalized)) return prev
+      const next = new Set(prev)
+      next.add(normalized)
+      return next
+    })
   }
 
   async function handleQuizAnswer(correct: boolean) {
@@ -159,6 +185,7 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
                 userTopikLevel={userTopikLevel}
                 onWordTap={handleWordTap}
                 onTextWordTap={handleTextWordTap}
+                customWordSet={customWordSet}
               />
               <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 border-t border-border-subtle pt-5 text-xs text-text-tertiary">
                 <span className="flex items-center gap-1.5">
@@ -226,6 +253,8 @@ export function ReadingView({ article, masteryMap, wordDetails, userTopikLevel }
       {lookupWord && (
         <WordLookupCard
           korean={lookupWord}
+          existingCustomWords={customWordSet}
+          onWordSaved={handleWordSaved}
           onClose={() => setLookupWord(null)}
         />
       )}

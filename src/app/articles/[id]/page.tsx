@@ -44,7 +44,7 @@ export default async function ArticlePage({ params }: Props) {
   }
 
   const baseSegments: Segment[] = typedArticle.adapted_korean as Segment[]
-  const [{ data: matchRows }, { data: settings }] = await Promise.all([
+  const [{ data: matchRows }, { data: settings }, { data: customRows }] = await Promise.all([
     supabaseAdmin
       .from('article_word_matches')
       .select('source, topik_word_id, base_form')
@@ -54,6 +54,10 @@ export default async function ArticlePage({ params }: Props) {
       .select('topik_level')
       .eq('user_id', userId)
       .single(),
+    supabaseAdmin
+      .from('user_custom_words')
+      .select('korean')
+      .eq('user_id', userId),
   ])
 
   const topikMatchIds = [...new Set(
@@ -142,6 +146,7 @@ export default async function ArticlePage({ params }: Props) {
       masteryMap={masteryMap}
       wordDetails={wordDetails}
       userTopikLevel={userTopikLevel}
+      initialCustomWords={(customRows ?? []).map(row => row.korean)}
     />
   )
 }

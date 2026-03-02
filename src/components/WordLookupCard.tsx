@@ -1,9 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { hasKnownWordVariation } from '@/lib/vocabulary-analyzer'
 
 interface WordLookupCardProps {
   korean: string
+  existingCustomWords: Set<string>
+  onWordSaved?: (korean: string) => void
   onClose: () => void
 }
 
@@ -16,7 +19,7 @@ interface LookupResult {
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'conflict'
 
-export function WordLookupCard({ korean, onClose }: WordLookupCardProps) {
+export function WordLookupCard({ korean, existingCustomWords, onWordSaved, onClose }: WordLookupCardProps) {
   const [result, setResult] = useState<LookupResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +51,7 @@ export function WordLookupCard({ korean, onClose }: WordLookupCardProps) {
   }, [fetchDefinition])
 
   async function handleAddToWordBank() {
-    if (!result || saveState !== 'idle') return
+    if (!result || saveState !== 'idle' || isAlreadyInWordBank) return
     setSaveState('saving')
     try {
       const res = await fetch('/api/words/custom', {
@@ -68,13 +71,19 @@ export function WordLookupCard({ korean, onClose }: WordLookupCardProps) {
       if (!res.ok) {
         throw new Error('Save failed')
       }
+      const saved = await res.json()
       setSaveState('saved')
+      if (typeof saved?.korean === 'string') {
+        onWordSaved?.(saved.korean)
+      }
     } catch {
       setSaveState('idle')
     }
   }
 
-  const isSaved = saveState === 'saved' || saveState === 'conflict'
+  const lookupTerm = result?.korean ?? korean
+  const isAlreadyInWordBank = hasKnownWordVariation(lookupTerm, existingCustomWords)
+  const isSaved = isAlreadyInWordBank || saveState === 'saved' || saveState === 'conflict'
 
   return (
     <div
@@ -136,7 +145,13 @@ export function WordLookupCard({ korean, onClose }: WordLookupCardProps) {
                   : 'bg-accent-celadon text-white hover:bg-[#3E8A7B] active:scale-[0.98]'
             }`}
           >
-            {isSaved ? 'Added to Word Bank' : saveState === 'saving' ? 'Adding...' : 'Add to Word Bank'}
+            {isAlreadyInWordBank
+              ? 'Already in Word Bank'
+              : isSaved
+                ? 'Added to Word Bank'
+                : saveState === 'saving'
+                  ? 'Adding...'
+                  : 'Add to Word Bank'}
           </button>
         )}
 

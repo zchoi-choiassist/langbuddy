@@ -58,4 +58,23 @@ describe('analyzeVocabulary', () => {
       matchConfidence: 'exact',
     })
   })
+
+  it('matches custom words across particle variations', () => {
+    const results = analyzeVocabulary({
+      text: '간격은 중요하고, 간격이 일정하다.',
+      topikWords: [],
+      customWords: [{ id: 77, korean: '간격이' }],
+    })
+
+    expect(results).toEqual([
+      {
+        source: 'custom',
+        wordId: 77,
+        surfaceForm: '간격은',
+        normalizedForm: '간격은',
+        baseForm: '간격',
+        matchConfidence: 'derived',
+      },
+    ])
+  })
 })

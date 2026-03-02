@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { segmentColor } from '@/lib/mastery'
+import { hasKnownWordVariation } from '@/lib/vocabulary-analyzer'
 import type { Segment } from '@/lib/types'
 import type { TopikLevel } from '@/lib/constants'
 
@@ -12,27 +13,15 @@ const COLOR_CLASSES: Record<string, string> = {
 
 // Matches Korean characters (Hangul syllables, jamo, compatibility jamo)
 const KOREAN_WORD_RE = /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]+/
+const KOREAN_TOKEN_RE = /([\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]+)/g
 
 /** Split a text segment into tokens: Korean words become tappable, everything else stays plain. */
 function splitTextIntoTokens(text: string): { value: string; tappable: boolean }[] {
   const tokens: { value: string; tappable: boolean }[] = []
-  // Split on whitespace boundaries but keep the whitespace
-  const parts = text.split(/(\s+)/)
+  const parts = text.split(KOREAN_TOKEN_RE)
   for (const part of parts) {
     if (!part) continue
-    // Whitespace stays as-is
-    if (/^\s+$/.test(part)) {
-      tokens.push({ value: part, tappable: false })
-      continue
-    }
-    // Check if the part contains Korean characters worth tapping
-    // A word is tappable if it contains at least one Korean syllable character
-    if (KOREAN_WORD_RE.test(part)) {
-      tokens.push({ value: part, tappable: true })
-    } else {
-      // Pure punctuation or non-Korean text
-      tokens.push({ value: part, tappable: false })
-    }
+    tokens.push({ value: part, tappable: KOREAN_WORD_RE.test(part) })
   }
   return tokens
 }
@@ -43,6 +32,7 @@ interface SegmentRendererProps {
   userTopikLevel: number
   onWordTap?: (wordId: number) => void
   onTextWordTap?: (korean: string) => void
+  customWordSet?: Set<string>
 }
 
 export function SegmentRenderer({
@@ -51,6 +41,7 @@ export function SegmentRenderer({
   userTopikLevel,
   onWordTap,
   onTextWordTap,
+  customWordSet,
 }: SegmentRendererProps) {
   const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set())
 
@@ -73,19 +64,28 @@ export function SegmentRenderer({
           const tokens = splitTextIntoTokens(seg.text)
           return (
             <span key={i}>
-              {tokens.map((token, j) =>
-                token.tappable ? (
+              {tokens.map((token, j) => {
+                if (!token.tappable) {
+                  return <span key={j}>{token.value}</span>
+                }
+
+                const isCustomKnown = customWordSet
+                  ? hasKnownWordVariation(token.value, customWordSet)
+                  : false
+
+                return (
                   <button
                     key={j}
                     onClick={() => onTextWordTap(token.value)}
-                    className="rounded-[2px] transition-colors duration-100 active:bg-bg-subtle"
+                    data-custom-known={isCustomKnown ? 'true' : undefined}
+                    className={`rounded-[2px] transition-colors duration-100 active:bg-bg-subtle ${
+                      isCustomKnown ? 'border-b-2 border-[#E2A563] bg-[#FEF3C7]/40 pb-px' : ''
+                    }`}
                   >
                     {token.value}
                   </button>
-                ) : (
-                  <span key={j}>{token.value}</span>
                 )
-              )}
+              })}
             </span>
           )
         }

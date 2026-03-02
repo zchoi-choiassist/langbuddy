@@ -46,8 +46,28 @@ const STRIP_SUFFIXES = [
   '의',
 ].sort((a, b) => b.length - a.length)
 
+const HIGH_CONFIDENCE_SUFFIXES = [
+  '이었다',
+  '였다',
+  '했다',
+  '으로',
+  '에서',
+  '에게',
+  '까지',
+  '부터',
+  '처럼',
+].sort((a, b) => b.length - a.length)
+
+const KOREAN_CHUNK_RE = /[가-힣]+/g
+
 export function normalizeKoreanToken(value: string): string {
   return value.normalize('NFC').trim()
+}
+
+export function extractPrimaryKoreanToken(value: string): string {
+  const normalized = normalizeKoreanToken(value)
+  const token = normalized.match(KOREAN_CHUNK_RE)?.[0]
+  return token ? normalizeKoreanToken(token) : ''
 }
 
 export function deriveBaseCandidates(token: string): string[] {
@@ -70,6 +90,35 @@ export function deriveBaseCandidates(token: string): string[] {
   }
 
   return queue
+}
+
+export function canonicalizeKoreanToken(
+  token: string,
+  knownBaseForms: ReadonlySet<string> = new Set()
+): string {
+  const normalized = extractPrimaryKoreanToken(token)
+  if (!normalized) return ''
+
+  const candidates = deriveBaseCandidates(normalized)
+  const knownMatch = candidates.find(candidate => candidate !== normalized && knownBaseForms.has(candidate))
+  if (knownMatch) return knownMatch
+
+  for (const suffix of HIGH_CONFIDENCE_SUFFIXES) {
+    if (!normalized.endsWith(suffix)) continue
+    const stem = normalized.slice(0, -suffix.length)
+    if (/^[가-힣]{2,}$/.test(stem)) {
+      return stem
+    }
+  }
+
+  return normalized
+}
+
+export function hasKnownWordVariation(token: string, knownBaseForms: ReadonlySet<string>): boolean {
+  const normalized = extractPrimaryKoreanToken(token)
+  if (!normalized) return false
+
+  return deriveBaseCandidates(normalized).some(candidate => knownBaseForms.has(candidate))
 }
 
 function tokenize(text: string): string[] {
@@ -102,7 +151,15 @@ function tryMatch(
 
 export function analyzeVocabulary(input: AnalyzeVocabularyInput): VocabularyMatch[] {
   const topikIndex = new Map(input.topikWords.map(word => [normalizeKoreanToken(word.korean), word]))
-  const customIndex = new Map(input.customWords.map(word => [normalizeKoreanToken(word.korean), word]))
+  const customIndex = new Map<string, DictionaryWord>()
+  for (const word of input.customWords) {
+    const normalized = normalizeKoreanToken(word.korean)
+    for (const candidate of deriveBaseCandidates(normalized)) {
+      if (!customIndex.has(candidate)) {
+        customIndex.set(candidate, word)
+      }
+    }
+  }
 
   const results: VocabularyMatch[] = []
   const dedupe = new Set<string>()

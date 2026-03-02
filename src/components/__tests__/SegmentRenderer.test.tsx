@@ -136,7 +136,7 @@ describe('SegmentRenderer', () => {
     it('calls onTextWordTap with the Korean word when tapped', () => {
       const onTextWordTap = vi.fn()
       const textSegments: Segment[] = [
-        { type: 'text', text: '한국의 경제는' },
+        { type: 'text', text: '한국의 경제는,' },
       ]
       render(
         <SegmentRenderer
@@ -149,6 +149,8 @@ describe('SegmentRenderer', () => {
       )
       fireEvent.click(screen.getByRole('button', { name: '한국의' }))
       expect(onTextWordTap).toHaveBeenCalledWith('한국의')
+      fireEvent.click(screen.getByRole('button', { name: '경제는' }))
+      expect(onTextWordTap).toHaveBeenCalledWith('경제는')
     })
 
     it('does not make punctuation-only tokens tappable', () => {
@@ -196,6 +198,23 @@ describe('SegmentRenderer', () => {
       )
       const wordBtn = screen.getByRole('button', { name: '경제' })
       expect(wordBtn).toHaveAttribute('data-color', 'gray')
+    })
+
+    it('marks known custom words as already-added highlights', () => {
+      const textSegments: Segment[] = [
+        { type: 'text', text: '간격은 중요하다.' },
+      ]
+      render(
+        <SegmentRenderer
+          segments={textSegments}
+          masteryMap={new Map()}
+          userTopikLevel={2}
+          onWordTap={vi.fn()}
+          onTextWordTap={vi.fn()}
+          customWordSet={new Set(['간격'])}
+        />
+      )
+      expect(screen.getByRole('button', { name: '간격은' })).toHaveAttribute('data-custom-known', 'true')
     })
   })
 
