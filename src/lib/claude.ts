@@ -79,19 +79,14 @@ Adaptation rules:
 
 export function parseAdaptationResponse(text: string): AdaptationResponse {
   // Strip BOM, whitespace, and markdown code fences
-  let cleaned = text
+  const cleaned = text
     .replace(/^\uFEFF/, '')
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '')
     .trim()
 
-  let parsed: AdaptationResponse
-  try {
-    parsed = JSON.parse(cleaned)
-  } catch {
-    throw new Error('Claude returned invalid JSON')
-  }
+  const parsed = parseJsonWithRecovery(cleaned)
 
   if (!Array.isArray(parsed.adaptedKorean)) {
     throw new Error('Response must include an adaptedKorean array')
@@ -102,6 +97,30 @@ export function parseAdaptationResponse(text: string): AdaptationResponse {
   }
 
   return parsed
+}
+
+function parseJsonWithRecovery(text: string): AdaptationResponse {
+  try {
+    return JSON.parse(text) as AdaptationResponse
+  } catch {
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error('Claude returned invalid JSON')
+    }
+
+    for (let i = end; i > start; i--) {
+      if (text[i] !== '}') continue
+      const candidate = text.slice(start, i + 1)
+      try {
+        return JSON.parse(candidate) as AdaptationResponse
+      } catch {
+        // Keep shrinking until we find a valid JSON object boundary.
+      }
+    }
+
+    throw new Error('Claude returned invalid JSON')
+  }
 }
 
 const MAX_RETRIES = 1
@@ -129,10 +148,6 @@ export async function adaptArticle(
           role: 'user',
           content: `Title: ${title}\n\n${buildUserMessage(content, topikLevel)}`,
         },
-        {
-          role: 'assistant',
-          content: '{',
-        },
       ],
     })
 
@@ -141,11 +156,8 @@ export async function adaptArticle(
       throw new Error(`Unexpected Claude response content type: ${block?.type}`)
     }
 
-    // Prepend the '{' prefill that Claude continued from
-    const fullJson = '{' + block.text
-
     try {
-      return parseAdaptationResponse(fullJson)
+      return parseAdaptationResponse(block.text)
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
       if (attempt < MAX_RETRIES) continue

@@ -67,6 +67,13 @@ describe('parseAdaptationResponse', () => {
     expect(result.adaptedKorean).toHaveLength(3)
     expect(result.comprehensionQuestions).toHaveLength(3)
   })
+
+  it('extracts JSON when wrapped with explanatory text', () => {
+    const wrapped = `Here is your adapted article:\n\n${MOCK_RESPONSE}\n\nLet me know if you want changes.`
+    const result = parseAdaptationResponse(wrapped)
+    expect(result.adaptedKorean).toHaveLength(3)
+    expect(result.comprehensionQuestions).toHaveLength(3)
+  })
 })
 
 describe('buildUserMessage', () => {
@@ -97,16 +104,15 @@ describe('buildUserMessage', () => {
 
 // Test adaptArticle with mocked Anthropic client
 describe('adaptArticle', () => {
-  // Response text as if Claude continued from the '{' prefill
-  const continuedResponse = MOCK_RESPONSE.slice(1) // everything after the leading '{'
+  const directResponse = MOCK_RESPONSE
 
   beforeEach(() => {
     vi.resetModules()
   })
 
-  it('uses assistant prefill, max_tokens 8192, and parses response', async () => {
+  it('uses user-only messages, max_tokens 8192, and parses response', async () => {
     const createMock = vi.fn().mockResolvedValue({
-      content: [{ type: 'text', text: continuedResponse }],
+      content: [{ type: 'text', text: directResponse }],
     })
 
     vi.doMock('@anthropic-ai/sdk', () => ({
@@ -124,10 +130,10 @@ describe('adaptArticle', () => {
     // Verify API call parameters
     const callArgs = createMock.mock.calls[0][0]
     expect(callArgs.max_tokens).toBe(8192)
-    // Verify assistant prefill message
+    // Verify request ends with user message only
     const assistantMsg = callArgs.messages.find((m: { role: string }) => m.role === 'assistant')
-    expect(assistantMsg).toBeDefined()
-    expect(assistantMsg.content).toBe('{')
+    expect(assistantMsg).toBeUndefined()
+    expect(callArgs.messages[callArgs.messages.length - 1].role).toBe('user')
   })
 
   it('retries once on JSON parse failure then succeeds', async () => {
@@ -136,11 +142,11 @@ describe('adaptArticle', () => {
       callCount++
       if (callCount === 1) {
         return Promise.resolve({
-          content: [{ type: 'text', text: 'this is not valid json continuation' }],
+          content: [{ type: 'text', text: 'this is not valid json' }],
         })
       }
       return Promise.resolve({
-        content: [{ type: 'text', text: continuedResponse }],
+        content: [{ type: 'text', text: directResponse }],
       })
     })
 
