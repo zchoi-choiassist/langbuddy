@@ -11,6 +11,7 @@ interface LookupResult {
   korean: string
   english: string
   romanization: string
+  topikLevel: number
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'conflict'
@@ -57,6 +58,7 @@ export function WordLookupCard({ korean, onClose }: WordLookupCardProps) {
           korean: result.korean,
           english: result.english,
           romanization: result.romanization,
+          topikLevel: result.topikLevel,
         }),
       })
       if (res.status === 409) {
@@ -117,6 +119,7 @@ export function WordLookupCard({ korean, onClose }: WordLookupCardProps) {
           <div className="mb-6 text-center">
             <p className="text-lg font-medium text-text-primary">{result.english}</p>
             <p className="mt-1 text-sm text-text-tertiary">{result.romanization}</p>
+            <p className="mt-2 font-mono text-xs font-semibold text-accent-celadon">TOPIK {result.topikLevel}</p>
           </div>
         )}
 

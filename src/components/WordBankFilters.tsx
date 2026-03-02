@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TOPIK_LEVELS } from '@/lib/constants'
 
 interface WordBankItem {
-  id: number
+  id: string
+  source: 'topik' | 'custom'
   korean: string
   english: string | null
   romanization: string | null
@@ -19,6 +20,7 @@ interface WordBankResponse {
 
 const FILTERS = [
   { key: 'all', label: 'All' },
+  { key: 'custom', label: 'Custom' },
   ...TOPIK_LEVELS.map(level => ({ key: `topik${level}`, label: `TOPIK ${level}` })),
 ] as const
 
@@ -33,14 +35,17 @@ function fallbackExample(word: WordBankItem) {
 
 async function fetchWordBankPage({
   topikLevel,
+  customOnly,
   cursor,
 }: {
   topikLevel: number | null
+  customOnly: boolean
   cursor: string | null
 }): Promise<WordBankResponse> {
   const params = new URLSearchParams()
   params.set('limit', '40')
   if (topikLevel !== null) params.set('topikLevel', String(topikLevel))
+  if (customOnly) params.set('customOnly', 'true')
   if (cursor) params.set('cursor', cursor)
 
   const res = await fetch(`/api/wordbank?${params.toString()}`)
@@ -63,12 +68,13 @@ export function WordBankFilters() {
     const match = filter.match(/^topik(\d)$/)
     return match ? Number(match[1]) : null
   }, [filter])
+  const customOnly = filter === 'custom'
 
   const loadFirstPage = useCallback(async () => {
     setIsInitialLoading(true)
     setError(null)
     try {
-      const data = await fetchWordBankPage({ topikLevel, cursor: null })
+      const data = await fetchWordBankPage({ topikLevel, customOnly, cursor: null })
       setItems(data.items)
       setNextCursor(data.nextCursor)
     } catch {
@@ -78,14 +84,14 @@ export function WordBankFilters() {
     } finally {
       setIsInitialLoading(false)
     }
-  }, [topikLevel])
+  }, [customOnly, topikLevel])
 
   const loadNextPage = useCallback(async () => {
     if (isPaging || !nextCursor) return
 
     setIsPaging(true)
     try {
-      const data = await fetchWordBankPage({ topikLevel, cursor: nextCursor })
+      const data = await fetchWordBankPage({ topikLevel, customOnly, cursor: nextCursor })
       setItems(current => {
         const byId = new Map(current.map(word => [word.id, word]))
         for (const item of data.items) {
@@ -99,7 +105,7 @@ export function WordBankFilters() {
     } finally {
       setIsPaging(false)
     }
-  }, [isPaging, nextCursor, topikLevel])
+  }, [customOnly, isPaging, nextCursor, topikLevel])
 
   useEffect(() => {
     void loadFirstPage()
