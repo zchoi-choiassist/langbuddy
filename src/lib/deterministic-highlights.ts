@@ -70,6 +70,11 @@ export function applyDeterministicTopikHighlights(
   const expanded: Segment[] = []
 
   for (const segment of segments) {
+    if (segment.type === 'media') {
+      expanded.push(segment)
+      continue
+    }
+
     if (segment.type === 'break') {
       expanded.push(segment)
       continue

@@ -39,12 +39,17 @@ export async function POST(req: Request) {
 
   const limit = Math.max(1, Math.min(100, body.limit ?? 20))
 
-  const query = supabaseAdmin
+  const baseQuery = supabaseAdmin
     .from('articles')
     .select('id, source_url, adapted_korean, created_at')
     .order('created_at', { ascending: false })
 
-  const { data: rows, error } = await query.limit(limit)
+  const cursor = body.cursor?.trim()
+  const pagedQuery = cursor && 'lt' in baseQuery
+    ? (baseQuery as typeof baseQuery & { lt: (column: string, value: string) => typeof baseQuery }).lt('created_at', cursor)
+    : baseQuery
+
+  const { data: rows, error } = await pagedQuery.limit(limit)
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
