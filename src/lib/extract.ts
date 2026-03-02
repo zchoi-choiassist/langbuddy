@@ -55,7 +55,7 @@ export async function extractArticleContent(
       throw new Error('Could not extract article content')
     }
     return {
-      title: article.title || 'Untitled',
+      title: normalizeText(article.title || 'Untitled'),
       content: cleanedContent,
     }
   } catch {
@@ -164,13 +164,27 @@ function cleanExtractedEnglish(value: string): string {
 }
 
 function decodeHtmlEntities(value: string): string {
-  return value
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
+  let decoded = value
+  // Decode repeatedly to handle double-encoded values like &amp;#x27;.
+  for (let i = 0; i < 3; i += 1) {
+    const next = decoded
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&apos;/gi, "'")
+      .replace(/&#39;/gi, "'")
+      .replace(/&lsquo;|&rsquo;/gi, "'")
+      .replace(/&ldquo;|&rdquo;/gi, '"')
+      .replace(/&hellip;/gi, '...')
+      .replace(/&mdash;|&ndash;/gi, '-')
+    if (next === decoded) break
+    decoded = next
+  }
+  return decoded
 }
 
 function escapeRegExp(value: string): string {

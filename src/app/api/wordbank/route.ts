@@ -22,6 +22,13 @@ interface CustomWordRow {
   topik_level: number
 }
 
+interface LegacyCustomWordRow {
+  id: string
+  korean: string
+  english: string | null
+  romanization: string | null
+}
+
 interface WordBankItem {
   id: string
   source: 'topik' | 'custom'
@@ -92,7 +99,7 @@ export async function GET(req: Request) {
     .order('korean', { ascending: true })
     .order('id', { ascending: true })
 
-  const [topikResult, customResult] = await Promise.all([
+  const [topikResult, customResultWithLevel] = await Promise.all([
     topikPromise ? topikPromise : Promise.resolve({ data: [], error: null }),
     customQuery,
   ])
@@ -100,8 +107,36 @@ export async function GET(req: Request) {
   if (topikResult.error) {
     return NextResponse.json({ error: topikResult.error.message }, { status: 500 })
   }
-  if (customResult.error) {
-    return NextResponse.json({ error: customResult.error.message }, { status: 500 })
+  let customRows: CustomWordRow[] = []
+  if (customResultWithLevel.error) {
+    const missingTopikColumn = customResultWithLevel.error.message.includes('topik_level')
+      && customResultWithLevel.error.message.includes('does not exist')
+    if (!missingTopikColumn) {
+      return NextResponse.json({ error: customResultWithLevel.error.message }, { status: 500 })
+    }
+
+    // Backward-compatible fallback while DB migration is pending.
+    if (hasTopikLevel) {
+      customRows = []
+    } else {
+      const { data: legacyRows, error: legacyError } = await supabaseAdmin
+        .from('user_custom_words')
+        .select('id, korean, english, romanization')
+        .eq('user_id', session.user.id)
+        .order('korean', { ascending: true })
+        .order('id', { ascending: true })
+
+      if (legacyError) {
+        return NextResponse.json({ error: legacyError.message }, { status: 500 })
+      }
+
+      customRows = ((legacyRows ?? []) as LegacyCustomWordRow[]).map(row => ({
+        ...row,
+        topik_level: 3,
+      }))
+    }
+  } else {
+    customRows = (customResultWithLevel.data ?? []) as CustomWordRow[]
   }
 
   const topikItems: WordBankItem[] = ((topikResult.data ?? []) as TopikWordRow[]).map(row => ({
@@ -115,7 +150,7 @@ export async function GET(req: Request) {
     topikWordId: row.id,
   }))
 
-  const customItems: WordBankItem[] = ((customResult.data ?? []) as CustomWordRow[]).map(row => ({
+  const customItems: WordBankItem[] = customRows.map(row => ({
     id: `custom:${row.id}`,
     source: 'custom',
     korean: row.korean,

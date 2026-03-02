@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { authMock, fromMock } = vi.hoisted(() => {
+const { authMock, fromMock, setFailCustomTopikLevelSelect } = vi.hoisted(() => {
   const authMock = vi.fn()
+  let failCustomTopikLevelSelect = false
 
   const topikRows = [
     { id: 11, korean: '경제', english: 'economy', romanization: 'gyeongje', topik_level: 2 },
@@ -78,7 +79,25 @@ const { authMock, fromMock } = vi.hoisted(() => {
       return { select: vi.fn(() => topikBuilder()) }
     }
     if (table === 'user_custom_words') {
-      return { select: vi.fn(() => customBuilder()) }
+      return {
+        select: vi.fn((columns?: string) => {
+          if (failCustomTopikLevelSelect && columns?.includes('topik_level')) {
+            return {
+              eq: vi.fn(() => ({
+                order: vi.fn(() => ({
+                  order: vi.fn(() => ({
+                    order: vi.fn(() => Promise.resolve({
+                      data: null,
+                      error: { message: 'column user_custom_words.topik_level does not exist' },
+                    })),
+                  })),
+                })),
+              })),
+            }
+          }
+          return customBuilder()
+        }),
+      }
     }
     if (table === 'user_word_mastery') {
       return { select: vi.fn(() => masteryBuilder()) }
@@ -86,7 +105,13 @@ const { authMock, fromMock } = vi.hoisted(() => {
     throw new Error(`Unexpected table: ${table}`)
   })
 
-  return { authMock, fromMock }
+  return {
+    authMock,
+    fromMock,
+    setFailCustomTopikLevelSelect: (value: boolean) => {
+      failCustomTopikLevelSelect = value
+    },
+  }
 })
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
@@ -100,6 +125,7 @@ describe('GET /api/wordbank', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authMock.mockResolvedValue({ user: { id: 'user-1' } })
+    setFailCustomTopikLevelSelect(false)
   })
 
   it('returns all words sorted with mastery > 0 first', async () => {
@@ -138,5 +164,15 @@ describe('GET /api/wordbank', () => {
     const req = new Request('http://localhost/api/wordbank')
     const res = await GET(req)
     expect(res.status).toBe(401)
+  })
+
+  it('falls back gracefully when custom topik_level column is missing', async () => {
+    setFailCustomTopikLevelSelect(true)
+    const req = new Request('http://localhost/api/wordbank?limit=10')
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.items.some((item: { source: string }) => item.source === 'topik')).toBe(true)
   })
 })

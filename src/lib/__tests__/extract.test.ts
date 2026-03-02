@@ -96,6 +96,93 @@ describe('extractArticleContent', () => {
     vi.doUnmock('jsdom')
     vi.resetModules()
   })
+
+  it('decodes numeric HTML entities in extracted titles', async () => {
+    vi.resetModules()
+    vi.doMock('@mozilla/readability', () => ({
+      Readability: class {
+        parse() {
+          return {
+            title: '&#34;그날의 함성을, 태권안무&#34;…호시, 3.1절 태권도 시범',
+            textContent:
+              '이 문장은 충분히 길어서 추출 기준을 통과합니다. 두 번째 문장도 포함하여 내용 길이를 확보합니다. 세 번째 문장까지 넣어서 읽기 도구가 안정적으로 본문을 추출하도록 만듭니다.',
+          }
+        }
+      },
+    }))
+    vi.doMock('jsdom', () => ({
+      JSDOM: class {
+        window = { document: {} }
+      },
+    }))
+
+    const { extractArticleContent: mockedExtract } = await import('@/lib/extract')
+    const result = await mockedExtract('<html></html>', 'https://www.dispatch.co.kr/2339479')
+
+    expect(result.title).toBe('"그날의 함성을, 태권안무"…호시, 3.1절 태권도 시범')
+
+    vi.doUnmock('@mozilla/readability')
+    vi.doUnmock('jsdom')
+    vi.resetModules()
+  })
+
+  it('decodes apostrophe entities in titles including double-encoded values', async () => {
+    vi.resetModules()
+    vi.doMock('@mozilla/readability', () => ({
+      Readability: class {
+        parse() {
+          return {
+            title: 'The dismantling of our &amp;#x27;rites of passage&amp;#x27;',
+            textContent:
+              'This paragraph is long enough to pass extraction checks and is repeated for stability. This paragraph is long enough to pass extraction checks and is repeated for stability.',
+          }
+        }
+      },
+    }))
+    vi.doMock('jsdom', () => ({
+      JSDOM: class {
+        window = { document: {} }
+      },
+    }))
+
+    const { extractArticleContent: mockedExtract } = await import('@/lib/extract')
+    const result = await mockedExtract('<html></html>', 'https://example.com/story')
+
+    expect(result.title).toBe("The dismantling of our 'rites of passage'")
+
+    vi.doUnmock('@mozilla/readability')
+    vi.doUnmock('jsdom')
+    vi.resetModules()
+  })
+
+  it('decodes entities in extracted body text', async () => {
+    vi.resetModules()
+    vi.doMock('@mozilla/readability', () => ({
+      Readability: class {
+        parse() {
+          return {
+            title: 'Entity Body Test',
+            textContent:
+              'He said &amp;#x27;hello&amp;#x27; &amp;amp; left &amp;mdash; quickly. This second sentence ensures the extracted content is long enough for validation.',
+          }
+        }
+      },
+    }))
+    vi.doMock('jsdom', () => ({
+      JSDOM: class {
+        window = { document: {} }
+      },
+    }))
+
+    const { extractArticleContent: mockedExtract } = await import('@/lib/extract')
+    const result = await mockedExtract('<html></html>', 'https://example.com/body-test')
+
+    expect(result.content).toContain("He said 'hello' & left - quickly.")
+
+    vi.doUnmock('@mozilla/readability')
+    vi.doUnmock('jsdom')
+    vi.resetModules()
+  })
 })
 
 describe('fetchAndExtract', () => {
