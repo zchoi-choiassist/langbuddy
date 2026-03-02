@@ -1,6 +1,7 @@
 import type { TopikLevel } from '@/lib/constants'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { fetchAndExtract } from '@/lib/extract'
+import { injectMediaSegments } from '@/lib/media-placement'
 import { adaptArticle } from '@/lib/claude'
 import { analyzeAndPersistArticleWords } from '@/lib/persist-article-word-matches'
 
@@ -21,12 +22,13 @@ export async function runBackgroundAdaptation(
   try {
     const extracted = await fetchAndExtract(url, redditType)
     const adaptation = await adaptArticle(extracted.title, extracted.content, topikLevel)
+    const adaptedWithMedia = injectMediaSegments(adaptation.adaptedKorean, extracted.images)
 
     const { error } = await supabaseAdmin
       .from('articles')
       .update({
         title: extracted.title,
-        adapted_korean: adaptation.adaptedKorean,
+        adapted_korean: adaptedWithMedia,
         original_english: extracted.content,
         comprehension_questions: adaptation.comprehensionQuestions,
       })
@@ -44,7 +46,7 @@ export async function runBackgroundAdaptation(
       await analyzeAndPersistArticleWords({
         articleId,
         userId,
-        adaptedKorean: adaptation.adaptedKorean,
+        adaptedKorean: adaptedWithMedia,
       })
     } catch (analysisError) {
       const message = analysisError instanceof Error ? analysisError.message : 'Unknown analysis error'

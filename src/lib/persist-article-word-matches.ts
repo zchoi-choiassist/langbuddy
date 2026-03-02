@@ -12,6 +12,7 @@ function flattenSegmentsToText(segments: Segment[]): string {
   return segments
     .map(segment => {
       if (segment.type === 'break') return '\n'
+      if (segment.type === 'media') return ''
       return segment.text
     })
     .join(' ')

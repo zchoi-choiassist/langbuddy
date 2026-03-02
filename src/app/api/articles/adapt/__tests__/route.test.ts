@@ -123,6 +123,14 @@ describe('POST /api/articles/adapt', () => {
     fetchAndExtractMock.mockResolvedValue({
       title: 'Extracted Title',
       content: 'Extracted article content',
+      images: [
+        {
+          src: 'https://images.example.com/hero.jpg',
+          alt: 'hero',
+          caption: null,
+          paragraphIndex: 0,
+        },
+      ],
       isReddit: false,
     })
     isRedditUrlMock.mockReturnValue(false)
@@ -162,12 +170,26 @@ describe('POST /api/articles/adapt', () => {
     expect(afterMock).toHaveBeenCalledTimes(1)
     expect(fetchAndExtractMock).toHaveBeenCalledWith('https://example.com/story', undefined)
     expect(adaptArticleMock).toHaveBeenCalledWith('Extracted Title', 'Extracted article content', 3)
-    expect(analyzeAndPersistArticleWordsMock).toHaveBeenCalledWith({
+    expect(analyzeAndPersistArticleWordsMock).toHaveBeenCalledWith(expect.objectContaining({
       articleId: 'article-1',
       userId: 'user-1',
-      adaptedKorean: [{ type: 'text', text: '적응된 내용' }],
-    })
+      adaptedKorean: expect.arrayContaining([
+        { type: 'text', text: '적응된 내용' },
+        expect.objectContaining({
+          type: 'media',
+          src: 'https://images.example.com/hero.jpg',
+        }),
+      ]),
+    }))
     expect(updateMock).toHaveBeenCalled()
+    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({
+      adapted_korean: expect.arrayContaining([
+        expect.objectContaining({
+          type: 'media',
+          src: 'https://images.example.com/hero.jpg',
+        }),
+      ]),
+    }))
     expect(updateEqMock).toHaveBeenCalledWith('id', 'article-1')
   })
 })
