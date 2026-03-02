@@ -26,6 +26,21 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 - After adaptation persistence, a deterministic analyzer scans adapted Korean text against `topik_words` and `user_custom_words`.
 - Analyzer output is stored in `article_word_matches`, and each successful analysis stamps `articles.last_analyzed_at`.
 
+## Inline Media In Reading View
+
+- Reading view supports inline image media blocks extracted from source articles.
+- Media appears in both Korean and English mode.
+- Extraction keeps first 5 unique HTTP/HTTPS images per article.
+- Images are lazy-loaded and render a fixed-height gray fallback with `Image unavailable` on load error.
+- Media is non-interactive (no tap-to-open/fullscreen behavior).
+
+### Backfill Existing Articles
+
+- Use `POST /api/admin/backfill-inline-media` to backfill older articles in batches.
+- Only users listed in `ADMIN_USER_IDS` can run this endpoint.
+- Endpoint accepts `limit` and optional `cursor`; response returns `processed`, `updated`, `skipped`, `failed`, `nextCursor`.
+- Full operation guide: `docs/plans/2026-03-02-inline-media-backfill-runbook.md`.
+
 ## Word Bank API
 
 - `GET /api/wordbank` returns TOPIK dictionary rows with user mastery hydration.
