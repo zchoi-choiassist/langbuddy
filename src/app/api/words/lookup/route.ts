@@ -10,6 +10,14 @@ function getClient(): Anthropic {
   return _client
 }
 
+function coerceTopikLevel(value: unknown): 1 | 2 | 3 | 4 | 5 | 6 {
+  const level = Number(value)
+  if ([1, 2, 3, 4, 5, 6].includes(level)) {
+    return level as 1 | 2 | 3 | 4 | 5 | 6
+  }
+  return 3
+}
+
 export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -39,11 +47,12 @@ export async function POST(req: Request) {
 Word: ${korean}
 
 Return format:
-{"english": "concise English definition", "romanization": "romanized pronunciation"}
+{"english": "concise English definition", "romanization": "romanized pronunciation", "topikLevel": 1}
 
 Rules:
 - english: 1-6 word definition, the most common meaning
 - romanization: standard romanization (e.g. "gyeongje" for 경제)
+- topikLevel: integer 1-6 estimate of this word's TOPIK difficulty level
 - If it's a grammatical particle (은, 는, 이, 가, 을, 를, 에, 에서, 도, 의), define it as a particle with its grammatical function
 - If it's an inflected verb form, define the base form`,
         },
@@ -72,6 +81,7 @@ Rules:
       korean,
       english: parsed.english,
       romanization: parsed.romanization,
+      topikLevel: coerceTopikLevel(parsed.topikLevel),
     })
   } catch (err) {
     console.error('[words/lookup] Claude lookup failed:', err)

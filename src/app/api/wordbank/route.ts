@@ -3,12 +3,10 @@ import { auth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 interface CursorPayload {
-  level: number
-  korean: string
-  id: number
+  offset: number
 }
 
-interface WordRow {
+interface TopikWordRow {
   id: number
   korean: string
   english: string | null
@@ -16,18 +14,34 @@ interface WordRow {
   topik_level: number
 }
 
+interface CustomWordRow {
+  id: string
+  korean: string
+  english: string | null
+  romanization: string | null
+  topik_level: number
+}
+
+interface WordBankItem {
+  id: string
+  source: 'topik' | 'custom'
+  korean: string
+  english: string | null
+  romanization: string | null
+  topik_level: number
+  mastery: number
+  topikWordId: number | null
+}
+
 function encodeCursor(payload: CursorPayload): string {
-  return Buffer.from(`${payload.level}|${payload.korean}|${payload.id}`, 'utf8').toString('base64')
+  return Buffer.from(String(payload.offset), 'utf8').toString('base64')
 }
 
 function decodeCursor(cursor: string): CursorPayload | null {
   try {
-    const decoded = Buffer.from(cursor, 'base64').toString('utf8')
-    const [levelText, korean, idText] = decoded.split('|')
-    const level = Number(levelText)
-    const id = Number(idText)
-    if (!korean || Number.isNaN(level) || Number.isNaN(id)) return null
-    return { level, korean, id }
+    const offset = Number(Buffer.from(cursor, 'base64').toString('utf8'))
+    if (Number.isNaN(offset) || offset < 0) return null
+    return { offset }
   } catch {
     return null
   }
@@ -42,48 +56,87 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const limit = Math.max(1, Math.min(Number(url.searchParams.get('limit') ?? '40'), 100))
   const topikLevel = url.searchParams.get('topikLevel')
+  const customOnly = ['1', 'true', 'yes'].includes((url.searchParams.get('customOnly') ?? '').toLowerCase())
   const cursor = url.searchParams.get('cursor')
 
-  let query = supabaseAdmin
-    .from('topik_words')
-    .select('id, korean, english, romanization, topik_level')
+  const parsedTopikLevel = topikLevel ? Number(topikLevel) : null
+  const hasTopikLevel = parsedTopikLevel !== null && !Number.isNaN(parsedTopikLevel)
 
-  if (topikLevel) {
-    const level = Number(topikLevel)
-    if (!Number.isNaN(level)) {
-      query = query.eq('topik_level', level)
+  let topikPromise: PromiseLike<{ data: TopikWordRow[] | null; error: { message: string } | null }> | null = null
+  if (!customOnly) {
+    let topikQuery = supabaseAdmin
+      .from('topik_words')
+      .select('id, korean, english, romanization, topik_level')
+
+    if (hasTopikLevel) {
+      topikQuery = topikQuery.eq('topik_level', parsedTopikLevel!)
     }
+
+    topikPromise = topikQuery
+      .order('topik_level', { ascending: true })
+      .order('korean', { ascending: true })
+      .order('id', { ascending: true })
   }
 
-  query = query
+  let customQuery = supabaseAdmin
+    .from('user_custom_words')
+    .select('id, korean, english, romanization, topik_level')
+    .eq('user_id', session.user.id)
+
+  if (hasTopikLevel) {
+    customQuery = customQuery.eq('topik_level', parsedTopikLevel!)
+  }
+
+  customQuery = customQuery
     .order('topik_level', { ascending: true })
     .order('korean', { ascending: true })
     .order('id', { ascending: true })
 
-  if (cursor) {
-    const decoded = decodeCursor(cursor)
-    if (decoded) {
-      query = query.or(
-        `topik_level.gt.${decoded.level},and(topik_level.eq.${decoded.level},korean.gt.${decoded.korean}),and(topik_level.eq.${decoded.level},korean.eq.${decoded.korean},id.gt.${decoded.id})`
-      )
-    }
+  const [topikResult, customResult] = await Promise.all([
+    topikPromise ? topikPromise : Promise.resolve({ data: [], error: null }),
+    customQuery,
+  ])
+
+  if (topikResult.error) {
+    return NextResponse.json({ error: topikResult.error.message }, { status: 500 })
+  }
+  if (customResult.error) {
+    return NextResponse.json({ error: customResult.error.message }, { status: 500 })
   }
 
-  const { data: rows, error } = await query.range(0, limit - 1)
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  const topikItems: WordBankItem[] = ((topikResult.data ?? []) as TopikWordRow[]).map(row => ({
+    id: `topik:${row.id}`,
+    source: 'topik',
+    korean: row.korean,
+    english: row.english,
+    romanization: row.romanization,
+    topik_level: row.topik_level,
+    mastery: 0,
+    topikWordId: row.id,
+  }))
 
-  const safeRows = (rows ?? []) as WordRow[]
-  const ids = safeRows.map(row => row.id)
+  const customItems: WordBankItem[] = ((customResult.data ?? []) as CustomWordRow[]).map(row => ({
+    id: `custom:${row.id}`,
+    source: 'custom',
+    korean: row.korean,
+    english: row.english,
+    romanization: row.romanization,
+    topik_level: row.topik_level,
+    mastery: 0,
+    topikWordId: null,
+  }))
+
+  const topikIds = topikItems
+    .map(item => item.topikWordId)
+    .filter((value): value is number => typeof value === 'number')
 
   const masteryByWord = new Map<number, number>()
-  if (ids.length > 0) {
+  if (topikIds.length > 0) {
     const { data: masteryRows, error: masteryError } = await supabaseAdmin
       .from('user_word_mastery')
       .select('word_id, mastery')
       .eq('user_id', session.user.id)
-      .in('word_id', ids)
+      .in('word_id', topikIds)
 
     if (masteryError) {
       return NextResponse.json({ error: masteryError.message }, { status: 500 })
@@ -94,15 +147,28 @@ export async function GET(req: Request) {
     }
   }
 
-  const items = safeRows.map(row => ({
-    ...row,
-    mastery: masteryByWord.get(row.id) ?? 0,
-  }))
+  const merged = [...topikItems, ...customItems].map(item =>
+    item.topikWordId === null
+      ? item
+      : { ...item, mastery: masteryByWord.get(item.topikWordId) ?? 0 }
+  )
+  merged.sort((a, b) => {
+    const aSeen = a.mastery > 0 ? 1 : 0
+    const bSeen = b.mastery > 0 ? 1 : 0
+    if (aSeen !== bSeen) return bSeen - aSeen
+    if (a.topik_level !== b.topik_level) return a.topik_level - b.topik_level
+    const koreanCompare = a.korean.localeCompare(b.korean, 'ko')
+    if (koreanCompare !== 0) return koreanCompare
+    return a.id.localeCompare(b.id)
+  })
 
-  const last = items[items.length - 1]
-  const nextCursor = last
-    ? encodeCursor({ level: last.topik_level, korean: last.korean, id: last.id })
+  const decoded = cursor ? decodeCursor(cursor) : null
+  const offset = decoded?.offset ?? 0
+  const page = merged.slice(offset, offset + limit)
+  const nextOffset = offset + page.length
+  const nextCursor = nextOffset < merged.length
+    ? encodeCursor({ offset: nextOffset })
     : null
 
-  return NextResponse.json({ items, nextCursor })
+  return NextResponse.json({ items: page, nextCursor })
 }

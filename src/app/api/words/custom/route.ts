@@ -9,15 +9,16 @@ export async function POST(req: Request) {
   }
   const userId = session.user.id
 
-  let korean: string, english: string, romanization: string
+  let korean: string, english: string, romanization: string, topikLevel: number
   try {
     const body = await req.json()
     korean = body.korean?.trim()
     english = body.english?.trim()
     romanization = body.romanization?.trim()
-    if (!korean || !english || !romanization) {
+    topikLevel = Number(body.topikLevel)
+    if (!korean || !english || !romanization || ![1, 2, 3, 4, 5, 6].includes(topikLevel)) {
       return NextResponse.json(
-        { error: 'Missing required fields: korean, english, romanization' },
+        { error: 'Missing required fields: korean, english, romanization, topikLevel (1-6)' },
         { status: 400 }
       )
     }
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
       korean,
       english,
       romanization,
+      topik_level: topikLevel,
     })
     .select()
     .single()

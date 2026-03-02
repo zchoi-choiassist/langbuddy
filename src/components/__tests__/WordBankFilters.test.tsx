@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { WordBankFilters } from '@/components/WordBankFilters'
 
@@ -35,7 +35,8 @@ describe('WordBankFilters', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
       items: [
         {
-          id: 1,
+          id: 'topik:1',
+          source: 'topik',
           korean: '경제',
           english: 'economy',
           romanization: 'gyeongje',
@@ -43,7 +44,8 @@ describe('WordBankFilters', () => {
           mastery: 0,
         },
         {
-          id: 2,
+          id: 'topik:2',
+          source: 'topik',
           korean: '가족',
           english: 'family',
           romanization: 'gajok',
@@ -68,7 +70,8 @@ describe('WordBankFilters', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({
         items: [
           {
-            id: 1,
+            id: 'topik:1',
+            source: 'topik',
             korean: '경제',
             english: 'economy',
             romanization: 'gyeongje',
@@ -81,7 +84,8 @@ describe('WordBankFilters', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({
         items: [
           {
-            id: 2,
+            id: 'topik:2',
+            source: 'topik',
             korean: '경험',
             english: 'experience',
             romanization: 'gyeongheom',
@@ -103,5 +107,38 @@ describe('WordBankFilters', () => {
     })
 
     expect(await screen.findByRole('button', { name: /경험/i })).toBeInTheDocument()
+  })
+
+  it('renders a custom filter pill and requests customOnly mode', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      const isCustomOnly = url.includes('customOnly=true')
+      return new Response(JSON.stringify({
+        items: isCustomOnly
+          ? [
+              {
+                id: 'custom:c-1',
+                source: 'custom',
+                korean: '어플',
+                english: 'app',
+                romanization: 'eopeul',
+                topik_level: 2,
+                mastery: 0,
+              },
+            ]
+          : [],
+        nextCursor: null,
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<WordBankFilters />)
+    const customButton = await screen.findByRole('button', { name: /custom/i })
+    fireEvent.click(customButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('customOnly=true'))
+    })
+    expect(await screen.findByRole('button', { name: /어플/i })).toBeInTheDocument()
   })
 })
