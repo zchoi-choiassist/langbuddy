@@ -48,6 +48,9 @@ export default async function HomePage() {
           <Link href="/wordbank" className="text-sm font-medium text-text-secondary hover:text-accent-celadon transition-colors">
             Words
           </Link>
+          <Link href="/feeds" className="text-sm font-medium text-text-secondary hover:text-accent-celadon transition-colors">
+            Feeds
+          </Link>
         </div>
       </header>
 
